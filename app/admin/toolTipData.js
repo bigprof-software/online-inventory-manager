@@ -29,41 +29,23 @@ transactions_delete1Tip=["",spacer+"This option allows each member of the group 
 transactions_delete2Tip=["",spacer+"This option allows each member of the group to delete any record owned by any member of the group in the 'Transactions' table."];
 transactions_delete3Tip=["",spacer+"This option allows each member of the group to delete any records in the 'Transactions' table."];
 
-// sections table
-sections_addTip=["",spacer+"This option allows all members of the group to add records to the 'Storage sections' table. A member who adds a record to the table becomes the 'owner' of that record."];
+// batches table
+batches_addTip=["",spacer+"This option allows all members of the group to add records to the 'Batches' table. A member who adds a record to the table becomes the 'owner' of that record."];
 
-sections_view0Tip=["",spacer+"This option prohibits all members of the group from viewing any record in the 'Storage sections' table."];
-sections_view1Tip=["",spacer+"This option allows each member of the group to view only his own records in the 'Storage sections' table."];
-sections_view2Tip=["",spacer+"This option allows each member of the group to view any record owned by any member of the group in the 'Storage sections' table."];
-sections_view3Tip=["",spacer+"This option allows each member of the group to view all records in the 'Storage sections' table."];
+batches_view0Tip=["",spacer+"This option prohibits all members of the group from viewing any record in the 'Batches' table."];
+batches_view1Tip=["",spacer+"This option allows each member of the group to view only his own records in the 'Batches' table."];
+batches_view2Tip=["",spacer+"This option allows each member of the group to view any record owned by any member of the group in the 'Batches' table."];
+batches_view3Tip=["",spacer+"This option allows each member of the group to view all records in the 'Batches' table."];
 
-sections_edit0Tip=["",spacer+"This option prohibits all members of the group from modifying any record in the 'Storage sections' table."];
-sections_edit1Tip=["",spacer+"This option allows each member of the group to edit only his own records in the 'Storage sections' table."];
-sections_edit2Tip=["",spacer+"This option allows each member of the group to edit any record owned by any member of the group in the 'Storage sections' table."];
-sections_edit3Tip=["",spacer+"This option allows each member of the group to edit any records in the 'Storage sections' table, regardless of their owner."];
+batches_edit0Tip=["",spacer+"This option prohibits all members of the group from modifying any record in the 'Batches' table."];
+batches_edit1Tip=["",spacer+"This option allows each member of the group to edit only his own records in the 'Batches' table."];
+batches_edit2Tip=["",spacer+"This option allows each member of the group to edit any record owned by any member of the group in the 'Batches' table."];
+batches_edit3Tip=["",spacer+"This option allows each member of the group to edit any records in the 'Batches' table, regardless of their owner."];
 
-sections_delete0Tip=["",spacer+"This option prohibits all members of the group from deleting any record in the 'Storage sections' table."];
-sections_delete1Tip=["",spacer+"This option allows each member of the group to delete only his own records in the 'Storage sections' table."];
-sections_delete2Tip=["",spacer+"This option allows each member of the group to delete any record owned by any member of the group in the 'Storage sections' table."];
-sections_delete3Tip=["",spacer+"This option allows each member of the group to delete any records in the 'Storage sections' table."];
-
-// categories table
-categories_addTip=["",spacer+"This option allows all members of the group to add records to the 'Categories' table. A member who adds a record to the table becomes the 'owner' of that record."];
-
-categories_view0Tip=["",spacer+"This option prohibits all members of the group from viewing any record in the 'Categories' table."];
-categories_view1Tip=["",spacer+"This option allows each member of the group to view only his own records in the 'Categories' table."];
-categories_view2Tip=["",spacer+"This option allows each member of the group to view any record owned by any member of the group in the 'Categories' table."];
-categories_view3Tip=["",spacer+"This option allows each member of the group to view all records in the 'Categories' table."];
-
-categories_edit0Tip=["",spacer+"This option prohibits all members of the group from modifying any record in the 'Categories' table."];
-categories_edit1Tip=["",spacer+"This option allows each member of the group to edit only his own records in the 'Categories' table."];
-categories_edit2Tip=["",spacer+"This option allows each member of the group to edit any record owned by any member of the group in the 'Categories' table."];
-categories_edit3Tip=["",spacer+"This option allows each member of the group to edit any records in the 'Categories' table, regardless of their owner."];
-
-categories_delete0Tip=["",spacer+"This option prohibits all members of the group from deleting any record in the 'Categories' table."];
-categories_delete1Tip=["",spacer+"This option allows each member of the group to delete only his own records in the 'Categories' table."];
-categories_delete2Tip=["",spacer+"This option allows each member of the group to delete any record owned by any member of the group in the 'Categories' table."];
-categories_delete3Tip=["",spacer+"This option allows each member of the group to delete any records in the 'Categories' table."];
+batches_delete0Tip=["",spacer+"This option prohibits all members of the group from deleting any record in the 'Batches' table."];
+batches_delete1Tip=["",spacer+"This option allows each member of the group to delete only his own records in the 'Batches' table."];
+batches_delete2Tip=["",spacer+"This option allows each member of the group to delete any record owned by any member of the group in the 'Batches' table."];
+batches_delete3Tip=["",spacer+"This option allows each member of the group to delete any records in the 'Batches' table."];
 
 // suppliers table
 suppliers_addTip=["",spacer+"This option allows all members of the group to add records to the 'Suppliers' table. A member who adds a record to the table becomes the 'owner' of that record."];
@@ -83,6 +65,24 @@ suppliers_delete1Tip=["",spacer+"This option allows each member of the group to 
 suppliers_delete2Tip=["",spacer+"This option allows each member of the group to delete any record owned by any member of the group in the 'Suppliers' table."];
 suppliers_delete3Tip=["",spacer+"This option allows each member of the group to delete any records in the 'Suppliers' table."];
 
+// categories table
+categories_addTip=["",spacer+"This option allows all members of the group to add records to the 'Categories' table. A member who adds a record to the table becomes the 'owner' of that record."];
+
+categories_view0Tip=["",spacer+"This option prohibits all members of the group from viewing any record in the 'Categories' table."];
+categories_view1Tip=["",spacer+"This option allows each member of the group to view only his own records in the 'Categories' table."];
+categories_view2Tip=["",spacer+"This option allows each member of the group to view any record owned by any member of the group in the 'Categories' table."];
+categories_view3Tip=["",spacer+"This option allows each member of the group to view all records in the 'Categories' table."];
+
+categories_edit0Tip=["",spacer+"This option prohibits all members of the group from modifying any record in the 'Categories' table."];
+categories_edit1Tip=["",spacer+"This option allows each member of the group to edit only his own records in the 'Categories' table."];
+categories_edit2Tip=["",spacer+"This option allows each member of the group to edit any record owned by any member of the group in the 'Categories' table."];
+categories_edit3Tip=["",spacer+"This option allows each member of the group to edit any records in the 'Categories' table, regardless of their owner."];
+
+categories_delete0Tip=["",spacer+"This option prohibits all members of the group from deleting any record in the 'Categories' table."];
+categories_delete1Tip=["",spacer+"This option allows each member of the group to delete only his own records in the 'Categories' table."];
+categories_delete2Tip=["",spacer+"This option allows each member of the group to delete any record owned by any member of the group in the 'Categories' table."];
+categories_delete3Tip=["",spacer+"This option allows each member of the group to delete any records in the 'Categories' table."];
+
 // items table
 items_addTip=["",spacer+"This option allows all members of the group to add records to the 'Items' table. A member who adds a record to the table becomes the 'owner' of that record."];
 
@@ -101,23 +101,23 @@ items_delete1Tip=["",spacer+"This option allows each member of the group to dele
 items_delete2Tip=["",spacer+"This option allows each member of the group to delete any record owned by any member of the group in the 'Items' table."];
 items_delete3Tip=["",spacer+"This option allows each member of the group to delete any records in the 'Items' table."];
 
-// batches table
-batches_addTip=["",spacer+"This option allows all members of the group to add records to the 'Batches' table. A member who adds a record to the table becomes the 'owner' of that record."];
+// sections table
+sections_addTip=["",spacer+"This option allows all members of the group to add records to the 'Storage sections' table. A member who adds a record to the table becomes the 'owner' of that record."];
 
-batches_view0Tip=["",spacer+"This option prohibits all members of the group from viewing any record in the 'Batches' table."];
-batches_view1Tip=["",spacer+"This option allows each member of the group to view only his own records in the 'Batches' table."];
-batches_view2Tip=["",spacer+"This option allows each member of the group to view any record owned by any member of the group in the 'Batches' table."];
-batches_view3Tip=["",spacer+"This option allows each member of the group to view all records in the 'Batches' table."];
+sections_view0Tip=["",spacer+"This option prohibits all members of the group from viewing any record in the 'Storage sections' table."];
+sections_view1Tip=["",spacer+"This option allows each member of the group to view only his own records in the 'Storage sections' table."];
+sections_view2Tip=["",spacer+"This option allows each member of the group to view any record owned by any member of the group in the 'Storage sections' table."];
+sections_view3Tip=["",spacer+"This option allows each member of the group to view all records in the 'Storage sections' table."];
 
-batches_edit0Tip=["",spacer+"This option prohibits all members of the group from modifying any record in the 'Batches' table."];
-batches_edit1Tip=["",spacer+"This option allows each member of the group to edit only his own records in the 'Batches' table."];
-batches_edit2Tip=["",spacer+"This option allows each member of the group to edit any record owned by any member of the group in the 'Batches' table."];
-batches_edit3Tip=["",spacer+"This option allows each member of the group to edit any records in the 'Batches' table, regardless of their owner."];
+sections_edit0Tip=["",spacer+"This option prohibits all members of the group from modifying any record in the 'Storage sections' table."];
+sections_edit1Tip=["",spacer+"This option allows each member of the group to edit only his own records in the 'Storage sections' table."];
+sections_edit2Tip=["",spacer+"This option allows each member of the group to edit any record owned by any member of the group in the 'Storage sections' table."];
+sections_edit3Tip=["",spacer+"This option allows each member of the group to edit any records in the 'Storage sections' table, regardless of their owner."];
 
-batches_delete0Tip=["",spacer+"This option prohibits all members of the group from deleting any record in the 'Batches' table."];
-batches_delete1Tip=["",spacer+"This option allows each member of the group to delete only his own records in the 'Batches' table."];
-batches_delete2Tip=["",spacer+"This option allows each member of the group to delete any record owned by any member of the group in the 'Batches' table."];
-batches_delete3Tip=["",spacer+"This option allows each member of the group to delete any records in the 'Batches' table."];
+sections_delete0Tip=["",spacer+"This option prohibits all members of the group from deleting any record in the 'Storage sections' table."];
+sections_delete1Tip=["",spacer+"This option allows each member of the group to delete only his own records in the 'Storage sections' table."];
+sections_delete2Tip=["",spacer+"This option allows each member of the group to delete any record owned by any member of the group in the 'Storage sections' table."];
+sections_delete3Tip=["",spacer+"This option allows each member of the group to delete any records in the 'Storage sections' table."];
 
 /*
 	Style syntax:

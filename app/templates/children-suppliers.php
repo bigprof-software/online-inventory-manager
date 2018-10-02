@@ -52,7 +52,7 @@
 				var url = $j('#' + param.ChildTable + '_hclink').val() + '&addNew_x=1&Embedded=1' + (param.AutoClose ? '&AutoClose=1' : '');
 				modal_window({
 					url: url,
-					close: function(){ <?php echo $current_table; ?>GetChildrenRecordsList({ Verb: 'reload' }); },
+					close: function(){ /* */ <?php echo $current_table; ?>GetChildrenRecordsList({ Verb: 'reload' }); },
 					size: 'full',
 					title: '<?php echo addslashes("{$config['tab-label']}: {$Translation['Add New']}"); ?>'
 				});
@@ -61,7 +61,7 @@
 				var url = param.ChildTable + '_view.php?Embedded=1&SelectedID=' + escape(command.ChildID) + (param.AutoClose ? '&AutoClose=1' : '');
 				modal_window({
 					url: url,
-					close: function(){ <?php echo $current_table; ?>GetChildrenRecordsList({ Verb: 'reload' }); },
+					close: function(){ /* */ <?php echo $current_table; ?>GetChildrenRecordsList({ Verb: 'reload' }); },
 					size: 'full',
 					title: '<?php echo addslashes($config['tab-label']); ?>'
 				});
@@ -127,17 +127,17 @@
 					<tr>
 						<?php if($config['open-detail-view-on-click']){ ?>
 							<?php if(stripos($_SERVER['HTTP_USER_AGENT'], 'msie ')){ ?>
-								<td class="view-on-click"><a href="<?php echo $parameters['ChildTable']; ?>_view.php?SelectedID=<?php echo urlencode($record[$config['child-primary-key-index']]); ?>" target="_viewchild" class="btn btn-default btn-block"><i class="glyphicon glyphicon-new-window hspacer-md"></i></a></td>
+								<td class="text-center view-on-click"><a href="<?php echo $parameters['ChildTable']; ?>_view.php?SelectedID=<?php echo urlencode($record[$config['child-primary-key-index']]); ?>" target="_viewchild" class="h6"><i class="glyphicon glyphicon-new-window hspacer-md"></i></a></td>
 							<?php }else{ ?>
-								<td class="view-on-click"><a href="#" onclick="<?php echo $current_table; ?>GetChildrenRecordsList({ Verb: 'open', ChildID: '<?php echo html_attr($record[$config['child-primary-key-index']]); ?>'}); return false;" class="btn btn-default btn-block"><i class="glyphicon glyphicon-new-window hspacer-md"></i></a></td>
+								<td class="text-center view-on-click"><a href="#" onclick="<?php echo $current_table; ?>GetChildrenRecordsList({ Verb: 'open', ChildID: '<?php echo html_attr($record[$config['child-primary-key-index']]); ?>'}); return false;" class="h6"><i class="glyphicon glyphicon-new-window hspacer-md"></i></a></td>
 							<?php } ?>
 						<?php } ?>
 
-						<td class="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][1]}"; ?>" id="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][1]}-" . html_attr($record[$config['child-primary-key-index']]); ?>"><?php echo $cleaner->xss_clean($record[1]); ?></td>
+						<td class="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][1]}"; ?>" id="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][1]}-" . html_attr($record[$config['child-primary-key-index']]); ?>"><?php echo safe_html($record[1]); ?></td>
 						<td class="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][2]}"; ?>" id="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][2]}-" . html_attr($record[$config['child-primary-key-index']]); ?>"><a href="mailto:<?php echo isEmail($record[2]); ?>" class="btn btn-info" title="<?php echo html_attr($record[2]); ?>"><i class="glyphicon glyphicon-envelope"></i></a></td>
-						<td class="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][3]}"; ?>" id="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][3]}-" . html_attr($record[$config['child-primary-key-index']]); ?>"><?php echo $cleaner->xss_clean($record[3]); ?></td>
-						<td class="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][4]}"; ?>" id="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][4]}-" . html_attr($record[$config['child-primary-key-index']]); ?>"><?php echo $cleaner->xss_clean($record[4]); ?></td>
-						<td class="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][5]}"; ?>" id="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][5]}-" . html_attr($record[$config['child-primary-key-index']]); ?>"><?php echo $cleaner->xss_clean($record[5]); ?></td>
+						<td class="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][3]}"; ?>" id="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][3]}-" . html_attr($record[$config['child-primary-key-index']]); ?>"><?php echo safe_html($record[3]); ?></td>
+						<td class="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][4]}"; ?>" id="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][4]}-" . html_attr($record[$config['child-primary-key-index']]); ?>"><?php echo safe_html($record[4]); ?></td>
+						<td class="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][5]}"; ?>" id="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][5]}-" . html_attr($record[$config['child-primary-key-index']]); ?>"><?php echo safe_html($record[5]); ?></td>
 					</tr>
 					<?php } ?>
 				</tbody>
@@ -170,4 +170,4 @@
 	</div>
 	<div class="col-xs-1 md-hidden lg-hidden"></div>
 </div>
-<script>$j(function(){ $j('img[src^="thumbnail.php?i=&"').parent().hide(); });</script>
+<script>$j(function(){ /* */ $j('img[src^="thumbnail.php?i=&"').parent().hide(); });</script>

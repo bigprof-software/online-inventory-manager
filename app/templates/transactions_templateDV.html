@@ -1,14 +1,11 @@
 <!-- Edit this file to change the layout of the detail view form -->
 
-<script src="resources/datepicker/js/datepicker.packed.js"></script>
-<link href="resources/datepicker/css/datepicker.css" rel="stylesheet">
-
 <a name="detail-view"></a>
 <div class="panel-heading"><h3 class="panel-title"><strong><%%DETAIL_VIEW_TITLE%%></strong></h3></div>
 
 <div class="panel-body" id="transactions_dv_container">
 	<!-- child links -->
-	<div class="row">
+	<div class="row vspacer-md">
 		<div class="col-xs-12">
 			<div class="clearfix"></div>
 		</div>
@@ -20,6 +17,7 @@
 			<fieldset class="form-horizontal">
 
 				<div class="form-group">
+					<hr class="hidden-md hidden-lg">
 					<label for="id" class="control-label col-lg-3">ID</label>
 					<div class="col-lg-9">
 						<div class="form-control-static" id="id"><%%VALUE(id)%%></div>
@@ -27,6 +25,7 @@
 				</div>
 
 				<div class="form-group">
+					<hr class="hidden-md hidden-lg">
 					<label for="transaction_date" class="control-label col-lg-3">Transaction date</label>
 					<div class="col-lg-9">
 						<%%COMBO(transaction_date)%%>
@@ -34,27 +33,31 @@
 				</div>
 
 				<div class="form-group">
+					<hr class="hidden-md hidden-lg">
 					<label for="item" class="control-label col-lg-3" data-parent_link="view_parent_modal">Item</label>
 					<div class="col-lg-9">
-						<div class="row form-control-static"><div class="col-xs-11"><%%COMBO(item)%%><%%PLINK(item)%%><%%ADDNEW(items)%%></div></div>
+						<div class="form-control-static" style="white-space: nowrap; overflow-x: hidden;"><%%COMBO(item)%%><%%PLINK(item)%%><%%ADDNEW(items)%%></div>
 					</div>
 				</div>
 
 				<div class="form-group">
+					<hr class="hidden-md hidden-lg">
 					<label for="batch" class="control-label col-lg-3" data-parent_link="view_parent_modal">Batch</label>
 					<div class="col-lg-9">
-						<div class="row form-control-static"><div class="col-xs-11"><%%COMBO(batch)%%><%%PLINK(batch)%%><%%ADDNEW(batches)%%></div></div>
+						<div class="form-control-static" style="white-space: nowrap; overflow-x: hidden;"><%%COMBO(batch)%%><%%PLINK(batch)%%><%%ADDNEW(batches)%%></div>
 					</div>
 				</div>
 
 				<div class="form-group">
+					<hr class="hidden-md hidden-lg">
 					<label for="section" class="control-label col-lg-3" data-parent_link="view_parent_modal">Storage section</label>
 					<div class="col-lg-9">
-						<div class="row form-control-static"><div class="col-xs-11"><%%COMBO(section)%%><%%PLINK(section)%%><%%ADDNEW(sections)%%></div></div>
+						<div class="form-control-static" style="white-space: nowrap; overflow-x: hidden;"><%%COMBO(section)%%><%%PLINK(section)%%><%%ADDNEW(sections)%%></div>
 					</div>
 				</div>
 
 				<div class="form-group">
+					<hr class="hidden-md hidden-lg">
 					<label for="transaction_type" class="control-label col-lg-3">Transaction type<span class="text-danger"><%%TRANSLATION(*)%%></span></label>
 					<div class="col-lg-9">
 						<%%COMBO(transaction_type)%%>
@@ -62,6 +65,7 @@
 				</div>
 
 				<div class="form-group">
+					<hr class="hidden-md hidden-lg">
 					<label for="quantity" class="control-label col-lg-3">Quantity</label>
 					<div class="col-lg-9">
 						<input maxlength="13" type="text" class="form-control" name="quantity" id="quantity" value="<%%VALUE(quantity)%%>">
@@ -72,6 +76,7 @@
 		</div>
 
 		<!-- DV action buttons -->
+		<hr class="hidden-md hidden-lg">
 		<div class="col-md-4 col-lg-2" id="transactions_dv_action_buttons">
 			<div class="btn-toolbar">
 				<div class="btn-group-vertical btn-group-lg" style="width: 100%;">
@@ -101,19 +106,23 @@
 			var record_added_ok = (location.search.split('record-added-ok=').length == 2);
 			var record_updated_ok = (location.search.split('record-updated-ok=').length == 2);
 			if((record_added_ok || record_updated_ok) && embedded_mode && autoclose_mode){
-				setTimeout(function(){
-					window.parent.jQuery('.modal').modal('hide');
-				}, 2000);
+				setTimeout(AppGini.closeParentModal, 2000);
 			}
 
-			$j('select, input[type=text], textarea').not(':disabled').eq(0).focus();
+			/* enable DV action buttons to float on scrolling down the form */
+			enable_dvab_floating();
+
+			if(!(embedded_mode && AppGini.mobileDevice())){
+				$j('select, input[type=text], textarea').not(':disabled').eq(0).focus();
+			}
+
 			$j('form').eq(0).change(function(){
 				if($j(this).data('already_changed')) return;
 				if($j('#deselect').length) $j('#deselect').removeClass('btn-default').addClass('btn-warning').get(0).lastChild.data = " <%%TRANSLATION(Cancel)%%>";
 				$j(this).data('already_changed', true);
 			});
 
-			$j('a[href="<%%TRANSLATION(ImageFolder)%%>"]').click(function(){ return false; });
+			$j('a[href="<%%TRANSLATION(ImageFolder)%%>"]').click(function(){ /* */ return false; });
 
 
 			if(!embedded_mode){
@@ -134,10 +143,7 @@
 				});
 			}
 
-			/* find and hide parent links if field label has data 'parent_link' set to 'view_parent_hidden' */
-			$j('label[data-parent_link=view_parent_hidden]').each(function(){
-				$j(this).parents('.form-group').find('.view_parent').hide();
-			});
+			AppGini.hideViewParentLinks();
 
 			$j('form').on('click', '.view_parent', function(){
 				var pt = $j(this).attr('id').replace(/_view_parent$/, '');
@@ -152,7 +158,7 @@
 					parent_id = $j(this).prevAll('[type=radio]').eq(0).val();
 				}
 
-				if(parent_id != '{empty_value}'){
+				if(parent_id != '{empty_value}' && parent_id != undefined && parent_id != ''){
 					var parent_link = $j(this).parents('.form-group').children('label').data('parent_link');
 					switch(parent_link){
 						case 'view_parent_hidden':

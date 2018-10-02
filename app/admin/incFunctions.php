@@ -38,23 +38,106 @@
 		get_plugins() -- scans for installed plugins and returns them in an array ('name', 'title', 'icon' or 'glyphicon', 'admin_path')
 		maintenance_mode($new_status = '') -- retrieves (and optionally sets) maintenance mode status
 		html_attr($str) -- prepare $str to be placed inside an HTML attribute
+		html_attr_tags_ok($str) -- same as html_attr, but allowing HTML tags
 		Request($var) -- class for providing sanitized values of given request variable (->sql, ->attr, ->html, ->url, and ->raw)
 		Notification() -- class for providing a standardized html notifications functionality
 		sendmail($mail) -- sends an email using PHPMailer as specified in the assoc array $mail( ['to', 'name', 'subject', 'message', 'debug'] ) and returns true on success or an error message on failure
+		safe_html($str) -- sanitize HTML strings, and apply nl2br() to non-HTML ones
+		get_tables_info($skip_authentication = false) -- retrieves table properties as a 2D assoc array ['table_name' => ['prop1' => 'val', ..], ..]
+		getLoggedMemberID() -- returns memberID of logged member. If no login, returns anonymous memberID
+		getLoggedGroupID() -- returns groupID of logged member, or anonymous groupID
+		getMemberInfo() -- returns an array containing the currently signed-in member's info
+		get_group_id($user = '') -- returns groupID of given user, or current one if empty
+		prepare_sql_set($set_array, $glue = ', ') -- Prepares data for a SET or WHERE clause, to be used in an INSERT/UPDATE query
+		insert($tn, $set_array) -- Inserts a record specified by $set_array to the given table $tn
+		update($tn, $set_array, $where_array) -- Updates a record identified by $where_array to date specified by $set_array in the given table $tn
+		set_record_owner($tn, $pk, $user) -- Set/update the owner of given record
+		app_datetime_format($destination = 'php', $datetime = 'd') -- get date/time format string for use with one of these: 'php' (see date function), 'mysql', 'moment'. $datetime: 'd' = date, 't' = time, 'dt' = both
+		mysql_datetime($app_datetime) -- converts $app_datetime to mysql-formatted datetime, 'yyyy-mm-dd H:i:s', or empty string on error
+		app_datetime($mysql_datetime, $datetime = 'd') -- converts $mysql_datetime to app-formatted datetime (if 2nd param is 'dt'), or empty string on error
+		to_utf8($str) -- converts string from app-configured encoding to utf8
+		from_utf8($str) -- converts string from utf8 to app-configured encoding
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	*/
 	########################################################################
+	function get_tables_info($skip_authentication = false){
+		static $all_tables = array(), $accessible_tables = array();
 
+		/* return cached results, if found */
+		if(($skip_authentication || getLoggedAdmin()) && count($all_tables)) return $all_tables;
+		if(!$skip_authentication && count($accessible_tables)) return $accessible_tables;
+
+		/* table groups */
+		$tg = array(
+			'Operations',
+			'Setup'
+		);
+
+		$all_tables = array(
+			/* ['table_name' => [table props assoc array] */   
+				'transactions' => array(
+					'Caption' => 'Transactions',
+					'Description' => 'Displays all incoming and outgoing transactions made for each item.',
+					'tableIcon' => 'resources/table_icons/book_keeping.png',
+					'group' => $tg[0],
+					'homepageShowCount' => 0
+				),
+				'batches' => array(
+					'Caption' => 'Batches',
+					'Description' => 'This table lists all available batches of all items, its supplier, batch number, manufacturing and expiry date and balance.',
+					'tableIcon' => 'resources/table_icons/box_closed.png',
+					'group' => $tg[0],
+					'homepageShowCount' => 0
+				),
+				'suppliers' => array(
+					'Caption' => 'Suppliers',
+					'Description' => 'This table lists the data of the suppliers of all items that enter the warehouse.',
+					'tableIcon' => 'resources/table_icons/administrator.png',
+					'group' => $tg[1],
+					'homepageShowCount' => 1
+				),
+				'categories' => array(
+					'Caption' => 'Categories',
+					'Description' => 'To classify the category of each item.',
+					'tableIcon' => 'resources/table_icons/bricks.png',
+					'group' => $tg[1],
+					'homepageShowCount' => 1
+				),
+				'items' => array(
+					'Caption' => 'Items',
+					'Description' => 'Listing of all items entering the warehouse, its code, balance and category.',
+					'tableIcon' => 'resources/table_icons/injection.png',
+					'group' => $tg[1],
+					'homepageShowCount' => 1
+				),
+				'sections' => array(
+					'Caption' => 'Storage sections',
+					'Description' => 'Lists all available storage locations.',
+					'tableIcon' => 'resources/table_icons/color_swatch.png',
+					'group' => $tg[1],
+					'homepageShowCount' => 1
+				)
+		);
+
+		if($skip_authentication || getLoggedAdmin()) return $all_tables;
+
+		foreach($all_tables as $tn => $ti){
+			$arrPerm = getTablePermissions($tn);
+			if($arrPerm[0]) $accessible_tables[$tn] = $ti;
+		}
+
+		return $accessible_tables;
+	}
 	#########################################################
 	if(!function_exists('getTableList')){
 		function getTableList($skip_authentication = false){
 			$arrTables = array(   
 				'transactions' => 'Transactions',
-				'sections' => 'Storage sections',
-				'categories' => 'Categories',
+				'batches' => 'Batches',
 				'suppliers' => 'Suppliers',
+				'categories' => 'Categories',
 				'items' => 'Items',
-				'batches' => 'Batches'
+				'sections' => 'Storage sections'
 			);
 
 			return $arrTables;
@@ -174,7 +257,25 @@
 	function makeSafe($string, $is_gpc = true){
 		if($is_gpc) $string = (get_magic_quotes_gpc() ? stripslashes($string) : $string);
 		if(!db_link()){ sql("select 1+1", $eo); }
-		return db_escape($string);
+
+		// prevent double escaping
+		$na = explode(',', "\x00,\n,\r,',\",\x1a");
+		$escaped = true;
+		$nosc = true; // no special chars exist
+		foreach($na as $ns){
+			$dan = substr_count($string, $ns);
+			$esdan = substr_count($string, "\\{$ns}");
+			if($dan != $esdan) $escaped = false;
+			if($dan) $nosc = false;
+		}
+		if($nosc){
+			// find unescaped \
+			$dan = substr_count($string, '\\');
+			$esdan = substr_count($string, '\\\\');
+			if($dan != $esdan * 2) $escaped = false;
+		}
+
+		return ($escaped ? $string : db_escape($string));
 	}
 	########################################################################
 	function checkPermissionVal($pvn){
@@ -209,34 +310,46 @@
 			if(!$connected){
 				/****** Connect to MySQL ******/
 				if(!extension_loaded('mysql') && !extension_loaded('mysqli')){
+					$o['error'] = 'PHP is not configured to connect to MySQL on this machine. Please see <a href="http://www.php.net/manual/en/ref.mysql.php">this page</a> for help on how to configure MySQL.';
+					if($o['silentErrors']) return false;
+
 					echo Notification::placeholder();
 					echo Notification::show(array(
-						'message' => 'PHP is not configured to connect to MySQL on this machine. Please see <a href="http://www.php.net/manual/en/ref.mysql.php">this page</a> for help on how to configure MySQL.',
+						'message' => $o['error'],
 						'class' => 'danger',
 						'dismiss_seconds' => 7200
 					));
-					$e=ob_get_contents(); ob_end_clean(); if($o['silentErrors']){ $o['error']=$e; return FALSE; }else{ echo $e; exit; }
+					echo ob_get_clean();
+					exit;
 				}
 
 				if(!($db_link = @db_connect($dbServer, $dbUsername, $dbPassword))){
+					$o['error'] = db_error($db_link, true);
+					if($o['silentErrors']) return false;
+
 					echo Notification::placeholder();
 					echo Notification::show(array(
-						'message' => db_error($db_link, true),
+						'message' => $o['error'],
 						'class' => 'danger',
 						'dismiss_seconds' => 7200
 					));
-					$e=ob_get_contents(); ob_end_clean(); if($o['silentErrors']){ $o['error']=$e; return FALSE; }else{ echo $e; exit; }
+					echo ob_get_clean();
+					exit;
 				}
 
 				/****** Select DB ********/
 				if(!db_select_db($dbDatabase, $db_link)){
+					$o['error'] = db_error($db_link);
+					if($o['silentErrors']) return false;
+
 					echo Notification::placeholder();
 					echo Notification::show(array(
-						'message' => db_error($db_link),
+						'message' => $o['error'],
 						'class' => 'danger',
 						'dismiss_seconds' => 7200
 					));
-					$e=ob_get_contents(); ob_end_clean(); if($o['silentErrors']){ $o['error']=$e; return FALSE; }else{ echo $e; exit; }
+					echo ob_get_clean();
+					exit;
 				}
 
 				$connected = true;
@@ -248,7 +361,9 @@
 					$errorNum = db_errno($db_link);
 					$errorMsg = htmlspecialchars(db_error($db_link));
 
-					if(getLoggedAdmin()) $errorMsg .= "<pre>{$Translation['query:']}\n" . htmlspecialchars($statment) . "</pre><i class=\"text-right\">{$Translation['admin-only info']}</i>";
+					if(getLoggedAdmin()) $errorMsg .= "<pre class=\"ltr\">{$Translation['query:']}\n" . htmlspecialchars($statment) . "</pre><i class=\"text-right\">{$Translation['admin-only info']}</i>";
+
+					if($o['silentErrors']){ $o['error'] = $errorMsg; return false; }
 
 					echo Notification::placeholder();
 					echo Notification::show(array(
@@ -256,7 +371,8 @@
 						'class' => 'danger',
 						'dismiss_seconds' => 7200
 					));
-					$e = ob_get_contents(); ob_end_clean(); if($o['silentErrors']){ $o['error'] = $errorMsg; return false; }else{ echo $e; exit; }
+					echo ob_get_clean();
+					exit;
 				}
 			}
 
@@ -264,6 +380,7 @@
 			return $result;
 		}
 	}
+
 	########################################################################
 	function sqlValue($statment){
 		// executes a statment that retreives a single data value and returns the value retrieved
@@ -311,14 +428,14 @@
 	########################################################################
 	function logOutUser(){
 		// destroys current session
-		$_SESSION = array();
 		if(isset($_COOKIE[session_name()])){
-			setcookie(session_name(), '', time()-42000, '/');
+			setcookie(session_name(), '', time() - 42000, '/');
 		}
-		if(isset($_COOKIE['inventory_rememberMe'])){
-			setcookie('inventory_rememberMe', '', time()-42000);
+		if(isset($_COOKIE[session_name() . '_rememberMe'])){
+			setcookie(session_name() . '_rememberMe', '', time() - 42000);
 		}
 		session_destroy();
+		$_SESSION = array();
 	}
 	########################################################################
 	function getPKFieldName($tn){
@@ -362,12 +479,12 @@
 		echo "<div class=\"alert alert-danger\">{$msg}</div>";
 	}
 	########################################################################
-	function redirect($URL, $absolute=FALSE){
-		$fullURL = ($absolute ? $URL : application_url($URL));
-		if(!headers_sent()) header("Location: $fullURL");
+	function redirect($url, $absolute = false){
+		$fullURL = ($absolute ? $url : application_url($url));
+		if(!headers_sent()) header("Location: {$fullURL}");
 
-		echo "<META HTTP-EQUIV=\"Refresh\" CONTENT=\"0;url=$fullURL\">";
-		echo "<br><br><a href=\"$fullURL\">Click here</a> if you aren't automatically redirected.";
+		echo "<META HTTP-EQUIV=\"Refresh\" CONTENT=\"0;url={$fullURL}\">";
+		echo "<br><br><a href=\"{$fullURL}\">Click here</a> if you aren't automatically redirected.";
 		exit;
 	}
 	########################################################################
@@ -733,12 +850,14 @@
 	}
 	########################################################################
 	function time24($t = false){
-		if($t === false) $t = date('Y-m-d H:i:s');
+		if($t === false) $t = date('Y-m-d H:i:s'); // time now if $t not passed
+		elseif(!$t) return ''; // empty string if $t empty
 		return date('H:i:s', strtotime($t));
 	}
 	########################################################################
 	function time12($t = false){
-		if($t === false) $t = date('Y-m-d H:i:s');
+		if($t === false) $t = date('Y-m-d H:i:s'); // time now if $t not passed
+		elseif(!$t) return ''; // empty string if $t empty
 		return date('h:i:s A', strtotime($t));
 	}
 	########################################################################
@@ -877,7 +996,14 @@
 	}
 	#########################################################
 	function html_attr($str){
+		if(version_compare(PHP_VERSION, '5.2.3') >= 0) return htmlspecialchars($str, ENT_QUOTES, datalist_db_encoding, false);
 		return htmlspecialchars($str, ENT_QUOTES, datalist_db_encoding);
+	}
+	#########################################################
+	function html_attr_tags_ok($str){
+		// use this instead of html_attr() if you don't want html tags to be escaped
+		$new_str = html_attr($str);
+		return str_replace(array('&lt;', '&gt;'), array('<', '>'), $new_str);
 	}
 	#########################################################
 	class Request{
@@ -939,7 +1065,7 @@
 						/* wait till all dependencies ready */
 						if(window.notifications_ready == undefined){
 							var op = options;
-							setTimeout(function(){ show_notification(op); }, 20);
+							setTimeout(function(){ /* */ show_notification(op); }, 20);
 							return;
 						}
 
@@ -977,7 +1103,7 @@
 
 						/* dismiss after x seconds if requested */
 						if(options.dismiss_seconds > 0){
-							setTimeout(function(){ this_notif.addClass('invisible'); }, options.dismiss_seconds * 1000);
+							setTimeout(function(){ /* */ this_notif.addClass('invisible'); }, options.dismiss_seconds * 1000);
 						}
 
 						/* dismiss for x days if requested and user dismisses it */
@@ -1001,7 +1127,7 @@
 						url: '<?php echo PREPEND_PATH; ?>resources/jscookie/js.cookie.js',
 						dataType: 'script',
 						cache: true,
-						success: function(){ window.notifications_ready = true; }
+						success: function(){ /* */ window.notifications_ready = true; }
 					});
 				})
 			</script>
@@ -1102,4 +1228,325 @@
 
 		return true;
 	}
+	#########################################################
+	function safe_html($str){
+		/* if $str has no HTML tags, apply nl2br */
+		if($str == strip_tags($str)) return nl2br($str);
 
+		$hc = new CI_Input();
+		$hc->charset = datalist_db_encoding;
+
+		return $hc->xss_clean($str);
+	}
+	#########################################################
+	function getLoggedGroupID(){
+		if($_SESSION['memberGroupID']!=''){
+			return $_SESSION['memberGroupID'];
+		}else{
+			if(!setAnonymousAccess()) return false;
+			return getLoggedGroupID();
+		}
+	}
+	#########################################################
+	function getLoggedMemberID(){
+		if($_SESSION['memberID']!=''){
+			return strtolower($_SESSION['memberID']);
+		}else{
+			if(!setAnonymousAccess()) return false;
+			return getLoggedMemberID();
+		}
+	}
+	#########################################################
+	function setAnonymousAccess(){
+		$adminConfig = config('adminConfig');
+		$anon_group_safe = addslashes($adminConfig['anonymousGroup']);
+		$anon_user_safe = strtolower(addslashes($adminConfig['anonymousMember']));
+
+		$eo = array('silentErrors' => true);
+
+		$res = sql("select groupID from membership_groups where name='{$anon_group_safe}'", $eo);
+		if(!$res){ return false; }
+		$row = db_fetch_array($res); $anonGroupID = $row[0];
+
+		$_SESSION['memberGroupID'] = ($anonGroupID ? $anonGroupID : 0);
+
+		$res = sql("select lcase(memberID) from membership_users where lcase(memberID)='{$anon_user_safe}' and groupID='{$anonGroupID}'", $eo);
+		if(!$res){ return false; }
+		$row = db_fetch_array($res); $anonMemberID = $row[0];
+
+		$_SESSION['memberID'] = ($anonMemberID ? $anonMemberID : 0);
+
+		return true;
+	}
+	#########################################################
+	function getMemberInfo($memberID = ''){
+		static $member_info = array();
+
+		if(!$memberID){
+			$memberID = getLoggedMemberID();
+		}
+
+		// return cached results, if present
+		if(isset($member_info[$memberID])) return $member_info[$memberID];
+
+		$adminConfig = config('adminConfig');
+		$mi = array();
+
+		if($memberID){
+			$res = sql("select * from membership_users where memberID='" . makeSafe($memberID) . "'", $eo);
+			if($row = db_fetch_assoc($res)){
+				$mi = array(
+					'username' => $memberID,
+					'groupID' => $row['groupID'],
+					'group' => sqlValue("select name from membership_groups where groupID='{$row['groupID']}'"),
+					'admin' => ($adminConfig['adminUsername'] == $memberID ? true : false),
+					'email' => $row['email'],
+					'custom' => array(
+						$row['custom1'], 
+						$row['custom2'], 
+						$row['custom3'], 
+						$row['custom4']
+					),
+					'banned' => ($row['isBanned'] ? true : false),
+					'approved' => ($row['isApproved'] ? true : false),
+					'signupDate' => @date('n/j/Y', @strtotime($row['signupDate'])),
+					'comments' => $row['comments'],
+					'IP' => $_SERVER['REMOTE_ADDR']
+				);
+
+				// cache results
+				$member_info[$memberID] = $mi;
+			}
+		}
+
+		return $mi;
+	}
+	#########################################################
+	function get_group_id($user = ''){
+		$mi = getMemberInfo($user);
+		return $mi['groupID'];
+	}
+	#########################################################
+	/**
+	 *  @brief Prepares data for a SET or WHERE clause, to be used in an INSERT/UPDATE query
+	 *  
+	 *  @param [in] $set_array Assoc array of field names => values
+	 *  @param [in] $glue optional glue. Set to ' AND ' or ' OR ' if preparing a WHERE clause
+	 *  @return SET string
+	 */
+	function prepare_sql_set($set_array, $glue = ', '){
+		$fnvs = array();
+		foreach($set_array as $fn => $fv){
+			if($fv === null){ $fnvs[] = "{$fn}=NULL"; continue; }
+
+			$sfv = makeSafe($fv);
+			$fnvs[] = "{$fn}='{$sfv}'";
+		}
+		return implode($glue, $fnvs);
+	}
+	#########################################################
+	/**
+	 *  @brief Inserts a record to the database
+	 *  
+	 *  @param [in] $tn table name where the record would be inserted
+	 *  @param [in] $set_array Assoc array of field names => values to be inserted
+	 *  @return boolean indicating success/failure
+	 */
+	function insert($tn, $set_array){
+		$set = prepare_sql_set($set_array);
+		if(!count($set)) return false;
+
+		return sql("INSERT INTO `{$tn}` SET {$set}", $eo);
+	}
+	#########################################################
+	/**
+	 *  @brief Updates a record in the database
+	 *  
+	 *  @param [in] $tn table name where the record would be inserted
+	 *  @param [in] $set_array Assoc array of field names => values to be inserted
+	 *  @param [in] $where_array Assoc array of field names => values used to build the WHERE clause
+	 *  @return boolean indicating success/failure
+	 */
+	function update($tn, $set_array, $where_array){
+		$set = prepare_sql_set($set_array);
+		if(!count($set)) return false;
+
+		$where = prepare_sql_set($where_array, ' AND ');
+		if(!$where) $where = '1=1';
+
+		return sql("UPDATE `{$tn}` SET {$set} WHERE {$where}", $eo);
+	}
+	#########################################################
+	/**
+	 *  @brief Set/update the owner of given record
+	 *  
+	 *  @param [in] $tn name of table
+	 *  @param [in] $pk primary key value
+	 *  @param [in] $user username to set as owner
+	 *  @return boolean indicating success/failure
+	 */
+	function set_record_owner($tn, $pk, $user){
+		$fields = array(
+			'memberID' => strtolower($user),
+			'dateUpdated' => time(),
+			'groupID' => get_group_id($user)
+		);
+
+		$where_array = array('tableName' => $tn, 'pkValue' => $pk);
+		$where = prepare_sql_set($where_array, ' AND ');
+		if(!$where) return false;
+
+		/* do we have an ownership record? */
+		$existing_owner = sqlValue("select LCASE(memberID) from membership_userrecords where {$where}");
+		if($existing_owner == $user) return true; // owner already set to $user
+
+		/* update owner */
+		if($existing_owner){
+			$res = update('membership_userrecords', $fields, $where_array);
+			return ($res ? true : false);
+		}
+
+		/* add new ownership record */
+		$fields = array_merge($fields, $where_array, array('dateAdded' => time()));
+		$res = insert('membership_userrecords', $fields);
+		return ($res ? true : false);
+	}
+	#########################################################
+	/**
+	 *  @brief get date/time format string for use in different cases.
+	 *  
+	 *  @param [in] $destination string, one of these: 'php' (see date function), 'mysql', 'moment'
+	 *  @param [in] $datetime string, one of these: 'd' = date, 't' = time, 'dt' = both
+	 *  @return string
+	 */
+	function app_datetime_format($destination = 'php', $datetime = 'd'){
+		switch(strtolower($destination)){
+			case 'mysql':
+				$date = '%m/%d/%Y';
+				$time = '%h:%i:%s %p';
+				break;
+			case 'moment':
+				$date = 'MM/DD/YYYY';
+				$time = 'hh:mm:ss A';
+				break;
+			default: // php
+				$date = 'm/d/Y';
+				$time = 'h:i:s A';
+		}
+
+		$datetime = strtolower($datetime);
+		if($datetime == 'dt' || $datetime == 'td') return "{$date} {$time}";
+		if($datetime == 't') return $time;
+		return $date;
+	}
+	#########################################################
+	/**
+	 *  @param [in] $app_datetime string, a datetime formatted in app-specific format
+	 *  @return string, mysql-formatted datetime, 'yyyy-mm-dd H:i:s', or empty string on error
+	 */
+	function mysql_datetime($app_datetime, $date_format = null, $time_format = null){
+		$app_datetime = trim($app_datetime);
+
+		if($date_format === null) $date_format = app_datetime_format('php', 'd');
+		$date_separator = $date_format[1];
+		if($time_format === null) $time_format = app_datetime_format('php', 't');
+		$time24 = (strpos($time_format, 'H') !== false); // true if $time_format is 24hr rather than 12
+
+		$date_regex = str_replace(
+			array('Y', 'm', 'd', '/', '.'),
+			array('([0-9]{4})', '(1[012]|0?[1-9])', '([12][0-9]|3[01]|0?[1-9])', '\/', '\.'),
+			$date_format
+		);
+
+		$time_regex = str_replace(
+			array('H', 'h', ':i', ':s'),
+			array(
+				'(1[0-9]|2[0-3]|0?[0-9])', 
+				'(1[012]|0?[0-9])', 
+				'(:([1-5][0-9]|0?[0-9]))', 
+				'(:([1-5][0-9]|0?[0-9]))?'
+			),
+			$time_format
+		);
+		if(stripos($time_regex, ' a'))
+			$time_regex = str_replace(array(' a', ' A'), '\s*(am|pm|a|p)?', $time_regex);
+		else
+			$time_regex = str_replace(array('a', 'A'), '\s*(am|pm|a|p)?', $time_regex);
+
+		// extract date and time
+		$time = '';
+		$mat = array();
+		$regex = "/^({$date_regex})(\s+{$time_regex})?$/i";
+		$valid_dt = preg_match($regex, $app_datetime, $mat);
+		if(!$valid_dt || count($mat) < 5) return ''; // invlaid datetime
+		// if we have a time, get it and change 'a' or 'p' at the end to 'am'/'pm'
+		if(count($mat) >= 8) $time = preg_replace('/(a|p)$/i', '$1m', trim($mat[5]));
+
+		// extract date elements from regex match, given 1st 2 items are full string and full date
+		$date_order = str_replace($date_separator, '', $date_format);
+		$day = $mat[stripos($date_order, 'd') + 2];
+		$month = $mat[stripos($date_order, 'm') + 2];
+		$year = $mat[stripos($date_order, 'y') + 2];
+
+		// convert time to 24hr format if necessary
+		if($time && !$time24) $time = date('H:i:s', strtotime("2000-01-01 {$time}"));
+
+		$mysql_datetime = trim("{$year}-{$month}-{$day} {$time}");
+
+		// strtotime handles dates between 1902 and 2037 only
+		// so we need another test date for dates outside this range ...
+		$test = $mysql_datetime;
+		if($year < 1902 || $year > 2037) $test = str_replace($year, '2000', $mysql_datetime);
+
+		return (strtotime($test) ? $mysql_datetime : '');
+	}
+	#########################################################
+	/**
+	 *  @param [in] $mysql_datetime string, Mysql-formatted datetime
+	 *  @param [in] $datetime string, one of these: 'd' = date, 't' = time, 'dt' = both
+	 *  @return string, app-formatted datetime, or empty string on error
+	 *  
+	 *  @details works for formatting date, time and datetime, based on 2nd param
+	 */  
+	function app_datetime($mysql_datetime, $datetime = 'd'){
+		$pyear = $myear = substr($mysql_datetime, 0, 4);
+
+		// strtotime handles dates between 1902 and 2037 only
+		// so we need a temp date for dates outside this range ...
+		if($myear < 1902 || $myear > 2037) $pyear = 2000;
+		$mysql_datetime = str_replace($myear, $pyear, $mysql_datetime);
+
+		$ts = strtotime($mysql_datetime);
+		if(!$ts) return '';
+
+		$pdate = date(app_datetime_format('php', $datetime), $ts);
+		return str_replace($pyear, $myear, $pdate);
+	}
+	#########################################################
+	/**
+	 *  @brief converts string from app-configured encoding to utf8
+	 *  
+	 *  @param [in] $str string to convert to utf8
+	 *  @return utf8-encoded string
+	 *  
+	 *  @details if the constant 'datalist_db_encoding' is not defined, original string is returned
+	 */
+	function to_utf8($str) {
+		if(!defined('datalist_db_encoding')) return $str;
+		if(datalist_db_encoding == 'UTF-8') return $str;
+		return iconv(datalist_db_encoding, 'UTF-8', $str);
+	}
+	#########################################################
+	/**
+	 *  @brief converts string from utf8 to app-configured encoding
+	 *  
+	 *  @param [in] $str string to convert from utf8
+	 *  @return utf8-decoded string
+	 *  
+	 *  @details if the constant 'datalist_db_encoding' is not defined, original string is returned
+	 */
+	function from_utf8($str) {
+		if(!defined('datalist_db_encoding')) return $str;
+		if(datalist_db_encoding == 'UTF-8') return $str;
+		return iconv('UTF-8', datalist_db_encoding, $str);
+	}

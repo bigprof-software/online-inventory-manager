@@ -100,7 +100,7 @@
 				<tbody>
 					<?php if(is_array($records)) foreach($records as $pkValue => $record){ ?>
 					<tr>
-						<td class="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][1]}"; ?>" id="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][1]}-" . html_attr($record[$config['child-primary-key-index']]); ?>"><?php echo $cleaner->xss_clean($record[1]); ?></td>
+						<td class="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][1]}"; ?>" id="<?php echo "{$parameters['ChildTable']}-{$config['display-field-names'][1]}-" . html_attr($record[$config['child-primary-key-index']]); ?>"><?php echo safe_html($record[1]); ?></td>
 					</tr>
 					<?php } ?>
 				</tbody>
@@ -132,4 +132,4 @@
 		<?php } ?>
 	</div>
 </div>
-<script>$j(function(){ $j('img[src^="thumbnail.php?i=&"').parent().hide(); });</script>
+<script>$j(function(){ /* */ $j('img[src^="thumbnail.php?i=&"').parent().hide(); });</script>

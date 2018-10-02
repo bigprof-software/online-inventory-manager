@@ -14,7 +14,7 @@
 		}
 
 		if(!$spm_installed) echo Notification::show(array(
-			'message' => '<i class="glyphicon glyphicon-info-sign"></i> Wish to offer your users an easier, more-tailored search experience? <a href="https://bigprof.com/appgini/applications?search-page-maker-plugin-discount" target="_blank" class="alert-link"><i class="glyphicon glyphicon-hand-right"></i> Click here to learn how Search Page Maker plugin can help</a>.',
+			'message' => '<i class="glyphicon glyphicon-info-sign"></i> Wish to offer your users an easier, more-tailored search experience? <a href="https://bigprof.com/appgini/applications/search-page-maker-plugin-discount" target="_blank" class="alert-link"><i class="glyphicon glyphicon-hand-right"></i> Click here to learn how Search Page Maker plugin can help</a>.',
 			'dismiss_days' => 30,
 			'class' => 'success',
 			'id' => 'spm_notification'
@@ -41,7 +41,7 @@
 								jQuery.ajax({
 									url: 'ajax_combo.php',
 									dataType: 'json',
-									data: { id: '<?php echo addslashes($fltrr_val); ?>', t: '<?php echo $this->TableName; ?>', f: '<?php echo $filterer; ?>', o: 0 }
+									data: <?php echo json_encode(array('id' => to_utf8($fltrr_val), 't' => $this->TableName, 'f' => $filterer, 'o' => 0)); ?>
 								}).done(function(resp){
 									jQuery('#<?php echo $fltrr_name; ?>_display_value').html(resp.results[0].text);
 								});
@@ -290,7 +290,7 @@
 		if(jQuery('#FilterAnd_' + (    FiltersPerGroup + 1) + '_').val()){ filterGroupDisplay(2); }
 		if(jQuery('#FilterAnd_' + (2 * FiltersPerGroup + 1) + '_').val()){ filterGroupDisplay(3); }
 
-		var DisplayRecords = '<?php echo html_attr($_REQUEST['DisplayRecords']); ?>';
+		var DisplayRecords = <?php echo json_encode($_REQUEST['DisplayRecords']); ?>;
 
 		switch(DisplayRecords){
 			case 'user':

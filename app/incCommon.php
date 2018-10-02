@@ -5,9 +5,6 @@
 	~~~~~~ LIST OF FUNCTIONS ~~~~~~
 		getTableList() -- returns an associative array (tableName => tableData, tableData is array(tableCaption, tableDescription, tableIcon)) of tables accessible by current user
 		get_table_groups() -- returns an associative array (table_group => tables_array)
-		getLoggedMemberID() -- returns memberID of logged member. If no login, returns anonymous memberID
-		getLoggedGroupID() -- returns groupID of logged member, or anonymous groupID
-		logOutMember() -- destroys session and logs member out.
 		logInMember() -- checks POST login. If not valid, redirects to index.php, else returns TRUE
 		getTablePermissions($tn) -- returns an array of permissions allowed for logged member to given table (allowAccess, allowInsert, allowView, allowEdit, allowDelete) -- allowAccess is set to true if any access level is allowed
 		get_sql_fields($tn) -- returns the SELECT part of the table view query
@@ -20,7 +17,6 @@
 		parseCode(code) -- calculates and returns special values to be inserted in automatic fields.
 		addFilter(i, filterAnd, filterField, filterOperator, filterValue) -- enforce a filter over data
 		clearFilters() -- clear all filters
-		getMemberInfo() -- returns an array containing the currently signed-in member's info
 		loadView($view, $data) -- passes $data to templates/{$view}.php and returns the output
 		loadTable($table, $data) -- loads table template, passing $data to it
 		filterDropdownBy($filterable, $filterers, $parentFilterers, $parentPKField, $parentCaption, $parentTable, &$filterableCombo) -- applies cascading drop-downs for a lookup field, returns js code to be inserted into the page
@@ -39,6 +35,7 @@
 		getUploadDir($dir) -- if dir is empty, returns upload dir configured in defaultLang.php, else returns $dir.
 		PrepareUploadedFile($FieldName, $MaxSize, $FileTypes='jpg|jpeg|gif|png', $NoRename=false, $dir="") -- validates and moves uploaded file for given $FieldName into the given $dir (or the default one if empty)
 		get_home_links($homeLinks, $default_classes, $tgroup) -- process $homeLinks array and return custom links for homepage. Applies $default_classes to links if links have classes defined, and filters links by $tgroup (using '*' matches all table_group values)
+		quick_search_html($search_term, $label, $separate_dv = true) -- returns HTML code for the quick search box.
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	*/
 
@@ -46,13 +43,14 @@
 
 	function getTableList($skip_authentication = false){
 		$arrAccessTables = array();
-		$arrTables = array(   
-			'transactions' => array('Transactions', 'Displays all incoming and outgoing transactions made for each item.', 'resources/table_icons/book_keeping.png', 'None'),
-			'sections' => array('Storage sections', 'Lists all available storage locations.', 'resources/table_icons/color_swatch.png', 'None'),
-			'categories' => array('Categories', 'To classify the category of each item.', 'resources/table_icons/bricks.png', 'None'),
-			'suppliers' => array('Suppliers', 'This table lists the data of the suppliers of all items that enter the warehouse.', 'resources/table_icons/administrator.png', 'None'),
-			'items' => array('Items', 'Listing of all items entering the warehouse, its code, balance and category.', 'resources/table_icons/injection.png', 'None'),
-			'batches' => array('Batches', 'This table lists all available batches of all items, its supplier, batch number, manufacturing and expiry date and balance.', 'resources/table_icons/box_closed.png', 'None')
+		$arrTables = array(
+			/* 'table_name' => ['table caption', 'homepage description', 'icon', 'table group name'] */   
+			'transactions' => array('Transactions', 'Displays all incoming and outgoing transactions made for each item.', 'resources/table_icons/book_keeping.png', 'Operations'),
+			'batches' => array('Batches', 'This table lists all available batches of all items, its supplier, batch number, manufacturing and expiry date and balance.', 'resources/table_icons/box_closed.png', 'Operations'),
+			'suppliers' => array('Suppliers', 'This table lists the data of the suppliers of all items that enter the warehouse.', 'resources/table_icons/administrator.png', 'Setup'),
+			'categories' => array('Categories', 'To classify the category of each item.', 'resources/table_icons/bricks.png', 'Setup'),
+			'items' => array('Items', 'Listing of all items entering the warehouse, its code, balance and category.', 'resources/table_icons/injection.png', 'Setup'),
+			'sections' => array('Storage sections', 'Lists all available storage locations.', 'resources/table_icons/color_swatch.png', 'Setup')
 		);
 		if($skip_authentication || getLoggedAdmin()) return $arrTables;
 
@@ -72,7 +70,7 @@
 
 	function get_table_groups($skip_authentication = false){
 		$tables = getTableList($skip_authentication);
-		$all_groups = array('None');
+		$all_groups = array('Operations', 'Setup');
 
 		$groups = array();
 		foreach($all_groups as $grp){
@@ -139,12 +137,12 @@
 
 	function get_sql_fields($table_name){
 		$sql_fields = array(   
-			'transactions' => "`transactions`.`id` as 'id', if(`transactions`.`transaction_date`,date_format(`transactions`.`transaction_date`,'%d/%m/%Y'),'') as 'transaction_date', IF(    CHAR_LENGTH(`items1`.`item`), CONCAT_WS('',   `items1`.`item`), '') as 'item', IF(    CHAR_LENGTH(`batches1`.`batch_no`), CONCAT_WS('',   `batches1`.`batch_no`), '') as 'batch', IF(    CHAR_LENGTH(`sections1`.`section`), CONCAT_WS('',   `sections1`.`section`), '') as 'section', `transactions`.`transaction_type` as 'transaction_type', `transactions`.`quantity` as 'quantity'",
-			'sections' => "`sections`.`id` as 'id', `sections`.`section` as 'section'",
-			'categories' => "`categories`.`id` as 'id', `categories`.`category` as 'category'",
+			'transactions' => "`transactions`.`id` as 'id', if(`transactions`.`transaction_date`,date_format(`transactions`.`transaction_date`,'%m/%d/%Y'),'') as 'transaction_date', IF(    CHAR_LENGTH(`items1`.`item`), CONCAT_WS('',   `items1`.`item`), '') as 'item', IF(    CHAR_LENGTH(`batches1`.`batch_no`), CONCAT_WS('',   `batches1`.`batch_no`), '') as 'batch', IF(    CHAR_LENGTH(`sections1`.`section`), CONCAT_WS('',   `sections1`.`section`), '') as 'section', `transactions`.`transaction_type` as 'transaction_type', `transactions`.`quantity` as 'quantity'",
+			'batches' => "`batches`.`id` as 'id', IF(    CHAR_LENGTH(`items1`.`item`), CONCAT_WS('',   `items1`.`item`), '') as 'item', IF(    CHAR_LENGTH(`suppliers1`.`supplier`), CONCAT_WS('',   `suppliers1`.`supplier`), '') as 'supplier', `batches`.`batch_no` as 'batch_no', if(`batches`.`manufacturing_date`,date_format(`batches`.`manufacturing_date`,'%m/%d/%Y'),'') as 'manufacturing_date', if(`batches`.`expiry_date`,date_format(`batches`.`expiry_date`,'%m/%d/%Y'),'') as 'expiry_date', `batches`.`balance` as 'balance'",
 			'suppliers' => "`suppliers`.`id` as 'id', `suppliers`.`supplier` as 'supplier', `suppliers`.`email` as 'email', `suppliers`.`phone` as 'phone', `suppliers`.`contact_person` as 'contact_person', `suppliers`.`country` as 'country'",
+			'categories' => "`categories`.`id` as 'id', `categories`.`category` as 'category'",
 			'items' => "`items`.`id` as 'id', `items`.`item` as 'item', `items`.`code` as 'code', `items`.`balance` as 'balance', IF(    CHAR_LENGTH(`categories1`.`category`), CONCAT_WS('',   `categories1`.`category`), '') as 'category'",
-			'batches' => "`batches`.`id` as 'id', IF(    CHAR_LENGTH(`items1`.`item`), CONCAT_WS('',   `items1`.`item`), '') as 'item', IF(    CHAR_LENGTH(`suppliers1`.`supplier`), CONCAT_WS('',   `suppliers1`.`supplier`), '') as 'supplier', `batches`.`batch_no` as 'batch_no', if(`batches`.`manufacturing_date`,date_format(`batches`.`manufacturing_date`,'%d/%m/%Y'),'') as 'manufacturing_date', if(`batches`.`expiry_date`,date_format(`batches`.`expiry_date`,'%d/%m/%Y'),'') as 'expiry_date', `batches`.`balance` as 'balance'"
+			'sections' => "`sections`.`id` as 'id', `sections`.`section` as 'section'"
 		);
 
 		if(isset($sql_fields[$table_name])){
@@ -159,20 +157,20 @@
 	function get_sql_from($table_name, $skip_permissions = false){
 		$sql_from = array(   
 			'transactions' => "`transactions` LEFT JOIN `items` as items1 ON `items1`.`id`=`transactions`.`item` LEFT JOIN `batches` as batches1 ON `batches1`.`id`=`transactions`.`batch` LEFT JOIN `sections` as sections1 ON `sections1`.`id`=`transactions`.`section` ",
-			'sections' => "`sections` ",
-			'categories' => "`categories` ",
+			'batches' => "`batches` LEFT JOIN `items` as items1 ON `items1`.`id`=`batches`.`item` LEFT JOIN `suppliers` as suppliers1 ON `suppliers1`.`id`=`batches`.`supplier` ",
 			'suppliers' => "`suppliers` ",
+			'categories' => "`categories` ",
 			'items' => "`items` LEFT JOIN `categories` as categories1 ON `categories1`.`id`=`items`.`category` ",
-			'batches' => "`batches` LEFT JOIN `items` as items1 ON `items1`.`id`=`batches`.`item` LEFT JOIN `suppliers` as suppliers1 ON `suppliers1`.`id`=`batches`.`supplier` "
+			'sections' => "`sections` "
 		);
 
 		$pkey = array(   
 			'transactions' => 'id',
-			'sections' => 'id',
-			'categories' => 'id',
+			'batches' => 'id',
 			'suppliers' => 'id',
+			'categories' => 'id',
 			'items' => 'id',
-			'batches' => 'id'
+			'sections' => 'id'
 		);
 
 		if(isset($sql_from[$table_name])){
@@ -229,13 +227,14 @@
 				'transaction_type' => '',
 				'quantity' => '1.00'
 			),
-			'sections' => array(
+			'batches' => array(
 				'id' => '',
-				'section' => ''
-			),
-			'categories' => array(
-				'id' => '',
-				'category' => ''
+				'item' => '',
+				'supplier' => '',
+				'batch_no' => '',
+				'manufacturing_date' => '1',
+				'expiry_date' => '1',
+				'balance' => '0.00'
 			),
 			'suppliers' => array(
 				'id' => '',
@@ -245,6 +244,10 @@
 				'contact_person' => '',
 				'country' => ''
 			),
+			'categories' => array(
+				'id' => '',
+				'category' => ''
+			),
 			'items' => array(
 				'id' => '',
 				'item' => '',
@@ -252,64 +255,13 @@
 				'balance' => '0.00',
 				'category' => ''
 			),
-			'batches' => array(
+			'sections' => array(
 				'id' => '',
-				'item' => '',
-				'supplier' => '',
-				'batch_no' => '',
-				'manufacturing_date' => '1',
-				'expiry_date' => '1',
-				'balance' => '0.00'
+				'section' => ''
 			)
 		);
 
 		return isset($defaults[$table]) ? $defaults[$table] : array();
-	}
-
-	#########################################################
-
-	function getLoggedGroupID(){
-		if($_SESSION['memberGroupID']!=''){
-			return $_SESSION['memberGroupID'];
-		}else{
-			if(!setAnonymousAccess()) return false;
-			return getLoggedGroupID();
-		}
-	}
-
-	#########################################################
-
-	function getLoggedMemberID(){
-		if($_SESSION['memberID']!=''){
-			return strtolower($_SESSION['memberID']);
-		}else{
-			if(!setAnonymousAccess()) return false;
-			return getLoggedMemberID();
-		}
-	}
-
-	#########################################################
-
-	function setAnonymousAccess(){
-		$adminConfig = config('adminConfig');
-		$anon_group_safe = addslashes($adminConfig['anonymousGroup']);
-		$anon_user_safe = strtolower(addslashes($adminConfig['anonymousMember']));
-
-		$eo = array('silentErrors' => true);
-
-		$res = sql("select groupID from membership_groups where name='{$anon_group_safe}'", $eo);
-		if(!$res){ return false; }
-		$row = db_fetch_array($res); $anonGroupID = $row[0];
-
-		$_SESSION['memberGroupID'] = ($anonGroupID ? $anonGroupID : 0);
-
-		$res = sql("select lcase(memberID) from membership_users where lcase(memberID)='{$anon_user_safe}' and groupID='{$anonGroupID}'", $eo);
-		if(!$res){ return false; }
-		$row = db_fetch_array($res); $anonMemberID = $row[0];
-
-		$_SESSION['memberID'] = ($anonMemberID ? $anonMemberID : 0);
-
-		return true;
 	}
 
 	#########################################################
@@ -363,13 +315,6 @@
 				$_SESSION['memberGroupID']=sqlValue("select groupID from membership_users where lcase(memberID)='$username'");
 			}
 		}
-	}
-
-	#########################################################
-
-	function logOutMember(){
-		logOutUser();
-		redirect("index.php?signIn=1");
 	}
 
 	#########################################################
@@ -458,12 +403,12 @@
 		$notify_template_no_fadeout = '<div id="%%ID%%" class="alert alert-dismissable %%CLASS%%" style="display: none; padding-top: 6px; padding-bottom: 6px;">' .
 					'<button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>' .
 					'%%MSG%%</div>' .
-					'<script> jQuery(function(){ jQuery("#%%ID%%").show("slow"); }); </script>'."\n";
+					'<script> jQuery(function(){ /* */ jQuery("#%%ID%%").show("slow"); }); </script>'."\n";
 		$notify_template = '<div id="%%ID%%" class="alert %%CLASS%%" style="display: none; padding-top: 6px; padding-bottom: 6px;">%%MSG%%</div>' .
 					'<script>' .
 						'jQuery(function(){' .
 							'jQuery("#%%ID%%").show("slow", function(){' .
-								'setTimeout(function(){ jQuery("#%%ID%%").hide("slow"); }, 4000);' .
+								'setTimeout(function(){ /* */ jQuery("#%%ID%%").hide("slow"); }, 4000);' .
 							'});' .
 						'});' .
 					'</script>'."\n";
@@ -534,9 +479,9 @@
 				'<%%creatorip%%>' => $_SERVER['REMOTE_ADDR'],
 				'<%%creatorgroup%%>' => sqlValue("select name from membership_groups where groupID='{$_SESSION['memberGroupID']}'"),
 
-				'<%%creationdate%%>' => ($rawData ? @date('Y-m-d') : @date('j/n/Y')),
+				'<%%creationdate%%>' => ($rawData ? @date('Y-m-d') : @date('n/j/Y')),
 				'<%%creationtime%%>' => ($rawData ? @date('H:i:s') : @date('h:i:s a')),
-				'<%%creationdatetime%%>' => ($rawData ? @date('Y-m-d H:i:s') : @date('j/n/Y h:i:s a')),
+				'<%%creationdatetime%%>' => ($rawData ? @date('Y-m-d H:i:s') : @date('n/j/Y h:i:s a')),
 				'<%%creationtimestamp%%>' => ($rawData ? @date('Y-m-d H:i:s') : @time())
 			);
 		}else{
@@ -546,9 +491,9 @@
 				'<%%editorip%%>' => $_SERVER['REMOTE_ADDR'],
 				'<%%editorgroup%%>' => sqlValue("select name from membership_groups where groupID='{$_SESSION['memberGroupID']}'"),
 
-				'<%%editingdate%%>' => ($rawData ? @date('Y-m-d') : @date('j/n/Y')),
+				'<%%editingdate%%>' => ($rawData ? @date('Y-m-d') : @date('n/j/Y')),
 				'<%%editingtime%%>' => ($rawData ? @date('H:i:s') : @date('h:i:s a')),
-				'<%%editingdatetime%%>' => ($rawData ? @date('Y-m-d H:i:s') : @date('j/n/Y h:i:s a')),
+				'<%%editingdatetime%%>' => ($rawData ? @date('Y-m-d H:i:s') : @date('n/j/Y h:i:s a')),
 				'<%%editingtimestamp%%>' => ($rawData ? @date('Y-m-d H:i:s') : @time())
 			);
 		}
@@ -594,51 +539,6 @@
 		for($i=1; $i<=80; $i++){
 			addFilter($i, '', 0, '', '');
 		}
-	}
-
-	#########################################################
-
-	function getMemberInfo($memberID = ''){
-		static $member_info = array();
-
-		if(!$memberID){
-			$memberID = getLoggedMemberID();
-		}
-
-		// return cached results, if present
-		if(isset($member_info[$memberID])) return $member_info[$memberID];
-
-		$adminConfig = config('adminConfig');
-		$mi = array();
-
-		if($memberID){
-			$res = sql("select * from membership_users where memberID='" . makeSafe($memberID) . "'", $eo);
-			if($row = db_fetch_assoc($res)){
-				$mi = array(
-					'username' => $memberID,
-					'groupID' => $row['groupID'],
-					'group' => sqlValue("select name from membership_groups where groupID='{$row['groupID']}'"),
-					'admin' => ($adminConfig['adminUsername'] == $memberID ? true : false),
-					'email' => $row['email'],
-					'custom' => array(
-						$row['custom1'], 
-						$row['custom2'], 
-						$row['custom3'], 
-						$row['custom4']
-					),
-					'banned' => ($row['isBanned'] ? true : false),
-					'approved' => ($row['isApproved'] ? true : false),
-					'signupDate' => @date('n/j/Y', @strtotime($row['signupDate'])),
-					'comments' => $row['comments'],
-					'IP' => $_SERVER['REMOTE_ADDR']
-				);
-
-				// cache results
-				$member_info[$memberID] = $mi;
-			}
-		}
-
-		return $mi;
 	}
 
 	#########################################################
@@ -791,7 +691,7 @@
 			$filterJS.="\n\t}";
 			$filterJS.="\n\t$('{$filterable}').highlight();";
 			$filterJS.="\n};";
-			$filterJS.="\n$('{$filterer}').observe('change', function(){ window.setTimeout({$filterable}_change_by_{$filterer}, 25); });";
+			$filterJS.="\n$('{$filterer}').observe('change', function(){ /* */ window.setTimeout({$filterable}_change_by_{$filterer}, 25); });";
 			$filterJS.="\n";
 		}
 
@@ -1139,10 +1039,7 @@ EOT;
 
 		$css_links = <<<EOT
 
-			<link rel="stylesheet" href="{$prepend_path}resources/initializr/css/bootstrap.css">
-			<!--[if gt IE 8]><!-->
-				<link rel="stylesheet" href="{$prepend_path}resources/initializr/css/bootstrap-theme.css">
-			<!--<![endif]-->';
+			<link rel="stylesheet" href="{$prepend_path}resources/initializr/css/cosmo.css">
 			<link rel="stylesheet" href="{$prepend_path}resources/lightbox/css/lightbox.css" media="screen">
 			<link rel="stylesheet" href="{$prepend_path}resources/select2/select2.css" media="screen">
 			<link rel="stylesheet" href="{$prepend_path}resources/timepicker/bootstrap-timepicker.min.css" media="screen">
@@ -1170,15 +1067,16 @@ EOT;
 
 	#########################################################
 
-	function PrepareUploadedFile($FieldName, $MaxSize, $FileTypes='jpg|jpeg|gif|png', $NoRename=false, $dir=""){
+	function PrepareUploadedFile($FieldName, $MaxSize, $FileTypes = 'jpg|jpeg|gif|png', $NoRename = false, $dir = ''){
 		global $Translation;
 		$f = $_FILES[$FieldName];
+		if($f['error'] == 4 || !$f['name']) return '';
 
 		$dir = getUploadDir($dir);
 
 		/* get php.ini upload_max_filesize in bytes */
 		$php_upload_size_limit = trim(ini_get('upload_max_filesize'));
-		$last = strtolower($php_upload_size_limit[strlen($php_upload_size_limit)-1]);
+		$last = strtolower($php_upload_size_limit[strlen($php_upload_size_limit) - 1]);
 		switch($last){
 			case 'g':
 				$php_upload_size_limit *= 1024;
@@ -1190,38 +1088,27 @@ EOT;
 
 		$MaxSize = min($MaxSize, $php_upload_size_limit);
 
-		if($f['error'] != 4 && $f['name']!=''){
-			if($f['size']>$MaxSize || $f['error']){
-				echo error_message(str_replace('<MaxSize>', intval($MaxSize / 1024), $Translation['file too large']));
-				exit;
-			}
-			if(!preg_match('/\.('.$FileTypes.')$/i', $f['name'], $ft)){
-				echo error_message(str_replace('<FileTypes>', str_replace('|', ', ', $FileTypes), $Translation['invalid file type']));
-				exit;
-			}
-
-			if($NoRename){
-				$n  = str_replace(' ', '_', $f['name']);
-			}else{
-				$n  = microtime();
-				$n  = str_replace(' ', '_', $n);
-				$n  = str_replace('0.', '', $n);
-				$n .= $ft[0];
-			}
-
-			if(!file_exists($dir)){
-				@mkdir($dir, 0777);
-			}
-
-			if(!@move_uploaded_file($f['tmp_name'], $dir . $n)){
-				echo error_message("Couldn't save the uploaded file. Try chmoding the upload folder '{$dir}' to 777.");
-				exit;
-			}else{
-				@chmod($dir.$n, 0666);
-				return $n;
-			}
+		if($f['size'] > $MaxSize || $f['error']){
+			echo error_message(str_replace('<MaxSize>', intval($MaxSize / 1024), $Translation['file too large']));
+			exit;
 		}
-		return "";
+		if(!preg_match('/\.(' . $FileTypes . ')$/i', $f['name'], $ft)){
+			echo error_message(str_replace('<FileTypes>', str_replace('|', ', ', $FileTypes), $Translation['invalid file type']));
+			exit;
+		}
+
+		$name = str_replace(' ', '_', $f['name']);
+		if(!$NoRename) $name = substr(md5(microtime() . rand(0, 100000)), -17) . $ft[0];
+
+		if(!file_exists($dir)) @mkdir($dir, 0777);
+
+		if(!@move_uploaded_file($f['tmp_name'], $dir . $name)){
+			echo error_message("Couldn't save the uploaded file. Try chmoding the upload folder '{$dir}' to 777.");
+			exit;
+		}
+
+		@chmod($dir . $name, 0666);
+		return $name;
 	}
 
 	#########################################################
@@ -1258,6 +1145,34 @@ EOT;
 		$html = ob_get_contents();
 		ob_end_clean();
 
+		return $html;
+	}
+
+	#########################################################
+
+	function quick_search_html($search_term, $label, $separate_dv = true){
+		global $Translation;
+
+		$safe_search = html_attr($search_term);
+		$safe_label = html_attr($label);
+		$safe_clear_label = html_attr($Translation['Reset Filters']);
+
+		if($separate_dv){
+			$reset_selection = "document.myform.SelectedID.value = '';";
+		}else{
+			$reset_selection = "document.myform.writeAttribute('novalidate', 'novalidate');";
+		}
+		$reset_selection .= ' document.myform.NoDV.value=1; return true;';
+
+		$html = <<<EOT
+		<div class="input-group" id="quick-search">
+			<input type="text" id="SearchString" name="SearchString" value="{$safe_search}" class="form-control" placeholder="{$safe_label}">
+			<span class="input-group-btn">
+				<button name="Search_x" value="1" id="Search" type="submit" onClick="{$reset_selection}" class="btn btn-default" title="{$safe_label}"><i class="glyphicon glyphicon-search"></i></button>
+				<button name="ClearQuickSearch" value="1" id="ClearQuickSearch" type="submit" onClick="\$j('#SearchString').val(''); {$reset_selection}" class="btn btn-default" title="{$safe_clear_label}"><i class="glyphicon glyphicon-remove-circle"></i></button>
+			</span>
+		</div>
+EOT;
 		return $html;
 	}
 

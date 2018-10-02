@@ -1,12 +1,16 @@
+<?php
+	$rdata = array_map('to_utf8', array_map('nl2br', array_map('html_attr_tags_ok', $rdata)));
+	$jdata = array_map('to_utf8', array_map('nl2br', array_map('html_attr_tags_ok', $jdata)));
+?>
 <script>
 	$j(function(){
 		var tn = 'transactions';
 
 		/* data for selected record, or defaults if none is selected */
 		var data = {
-			item: { id: '<?php echo $rdata['item']; ?>', value: '<?php echo $rdata['item']; ?>', text: '<?php echo $jdata['item']; ?>' },
-			batch: { id: '<?php echo $rdata['batch']; ?>', value: '<?php echo $rdata['batch']; ?>', text: '<?php echo $jdata['batch']; ?>' },
-			section: { id: '<?php echo $rdata['section']; ?>', value: '<?php echo $rdata['section']; ?>', text: '<?php echo $jdata['section']; ?>' }
+			item: <?php echo json_encode(array('id' => $rdata['item'], 'value' => $rdata['item'], 'text' => $jdata['item'])); ?>,
+			batch: <?php echo json_encode(array('id' => $rdata['batch'], 'value' => $rdata['batch'], 'text' => $jdata['batch'])); ?>,
+			section: <?php echo json_encode(array('id' => $rdata['section'], 'value' => $rdata['section'], 'text' => $jdata['section'])); ?>
 		};
 
 		/* initialize or continue using AppGini.cache for the current table */

@@ -13,13 +13,13 @@
 		// set up tables
 		setupTable('transactions', "create table if not exists `transactions` (   `id` INT unsigned not null auto_increment , primary key (`id`), `transaction_date` DATE , `item` INT unsigned , `batch` INT unsigned , `section` INT unsigned , `transaction_type` VARCHAR(40) not null , `quantity` DECIMAL(10,2) default '1.00' ) CHARSET utf8", $silent);
 		setupIndexes('transactions', array('item','batch','section'));
-		setupTable('sections', "create table if not exists `sections` (   `id` INT unsigned not null auto_increment , primary key (`id`), `section` VARCHAR(40) ) CHARSET utf8", $silent);
-		setupTable('categories', "create table if not exists `categories` (   `id` INT unsigned not null auto_increment , primary key (`id`), `category` VARCHAR(100) ) CHARSET utf8", $silent);
-		setupTable('suppliers', "create table if not exists `suppliers` (   `id` INT unsigned not null auto_increment , primary key (`id`), `supplier` VARCHAR(40) , `email` VARCHAR(80) , `phone` VARCHAR(40) , `contact_person` VARCHAR(40) , `country` VARCHAR(40) ) CHARSET utf8", $silent);
-		setupTable('items', "create table if not exists `items` (   `id` INT unsigned not null auto_increment , primary key (`id`), `item` VARCHAR(40) , `code` VARCHAR(40) , `balance` DECIMAL(10,2) default '0.00' , `category` INT unsigned ) CHARSET utf8", $silent);
-		setupIndexes('items', array('category'));
 		setupTable('batches', "create table if not exists `batches` (   `id` INT unsigned not null auto_increment , primary key (`id`), `item` INT unsigned , `supplier` INT unsigned , `batch_no` VARCHAR(40) , `manufacturing_date` DATE , `expiry_date` DATE , `balance` DECIMAL(10,2) default '0.00' ) CHARSET utf8", $silent);
 		setupIndexes('batches', array('item','supplier'));
+		setupTable('suppliers', "create table if not exists `suppliers` (   `id` INT unsigned not null auto_increment , primary key (`id`), `supplier` VARCHAR(40) , `email` VARCHAR(80) , `phone` VARCHAR(40) , `contact_person` VARCHAR(40) , `country` VARCHAR(40) ) CHARSET utf8", $silent);
+		setupTable('categories', "create table if not exists `categories` (   `id` INT unsigned not null auto_increment , primary key (`id`), `category` VARCHAR(100) ) CHARSET utf8", $silent);
+		setupTable('items', "create table if not exists `items` (   `id` INT unsigned not null auto_increment , primary key (`id`), `item` VARCHAR(40) , `code` VARCHAR(40) , `balance` DECIMAL(10,2) default '0.00' , `category` INT unsigned ) CHARSET utf8", $silent);
+		setupIndexes('items', array('category'));
+		setupTable('sections', "create table if not exists `sections` (   `id` INT unsigned not null auto_increment , primary key (`id`), `section` VARCHAR(40) ) CHARSET utf8", $silent);
 
 
 		// save MD5
