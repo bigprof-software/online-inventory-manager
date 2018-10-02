@@ -42,8 +42,10 @@
 
 				<div class="form-group">
 					<hr class="hidden-md hidden-lg">
-					<label for="batch" class="control-label col-lg-3" data-parent_link="view_parent_modal">Batch</label>
+					<label for="batch" class="control-label col-lg-3" data-parent_link="view_parent_modal">Batch <i class="glyphicon glyphicon-info-sign text-info" data-toggle="collapse" data-target="#batch-description"></i></label>
 					<div class="col-lg-9">
+						<span class="help-block collapse" id="batch-description"><div class="alert alert-info">If this transaction belongs to a new batch, you should <a href="batches_view.php?addNew_x=1" target="_blank">create a new batch entry</a> first.</div></span>
+
 						<div class="form-control-static" style="white-space: nowrap; overflow-x: hidden;"><%%COMBO(batch)%%><%%PLINK(batch)%%><%%ADDNEW(batches)%%></div>
 					</div>
 				</div>
@@ -66,8 +68,10 @@
 
 				<div class="form-group">
 					<hr class="hidden-md hidden-lg">
-					<label for="quantity" class="control-label col-lg-3">Quantity</label>
+					<label for="quantity" class="control-label col-lg-3">Quantity <i class="glyphicon glyphicon-info-sign text-info" data-toggle="collapse" data-target="#quantity-description"></i></label>
 					<div class="col-lg-9">
+						<span class="help-block collapse" id="quantity-description"><div class="alert alert-info">The quantity you provide here would update the balancce of the related batch and item automatically (according to the transaction type).</div></span>
+
 						<input maxlength="13" type="text" class="form-control" name="quantity" id="quantity" value="<%%VALUE(quantity)%%>">
 					</div>
 				</div>
