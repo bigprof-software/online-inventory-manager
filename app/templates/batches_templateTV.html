@@ -1,0 +1,13 @@
+<!-- Edit this file to change the layout of each record in the table view -->
+<!-- To disable clicking of a field, remove the <%%SELECT%%> and <%%ENDSELECT%%> formatters around it-->
+
+<!-- If you wish to hide the table view header that contains the column titles, -->
+<!-- add the following to the batches_init() hook (in hooks/batches.php file) -->
+<!--     $options->ShowTableHeader = 0;     -->
+
+		<td id="batches-item-<%%VALUE(id)%%>" class="batches-item"><%%SELECT%%><%%VALUE(item)%%><%%ENDSELECT%%></td>
+		<td id="batches-supplier-<%%VALUE(id)%%>" class="batches-supplier"><%%SELECT%%><%%VALUE(supplier)%%><%%ENDSELECT%%></td>
+		<td id="batches-batch_no-<%%VALUE(id)%%>" class="batches-batch_no"><%%SELECT%%><%%VALUE(batch_no)%%><%%ENDSELECT%%></td>
+		<td id="batches-manufacturing_date-<%%VALUE(id)%%>" class="batches-manufacturing_date"><%%SELECT%%><%%VALUE(manufacturing_date)%%><%%ENDSELECT%%></td>
+		<td id="batches-expiry_date-<%%VALUE(id)%%>" class="batches-expiry_date"><%%SELECT%%><%%VALUE(expiry_date)%%><%%ENDSELECT%%></td>
+		<td id="batches-balance-<%%VALUE(id)%%>" class="batches-balance text-right"><%%SELECT%%><%%VALUE(balance)%%><%%ENDSELECT%%></td>

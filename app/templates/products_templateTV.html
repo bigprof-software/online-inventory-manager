@@ -1,0 +1,11 @@
+<!-- Edit this file to change the layout of each record in the table view -->
+<!-- To disable clicking of a field, remove the <%%select%%> and <%%endselect%%> formatters around it-->
+
+<!-- If you wish to hide the table view header that contains the column titles, -->
+<!-- open the generated 'products_view.php' file in your text editor and -->
+<!-- change the value of $x->ShowTableHeader to 0 -->
+
+		<td id="products-item-<%%VALUE(id)%%>" class="products-item "><%%SELECT%%><%%VALUE(item)%%><%%ENDSELECT%%></td>
+		<td id="products-code-<%%VALUE(id)%%>" class="products-code "><%%SELECT%%><%%VALUE(code)%%><%%ENDSELECT%%></td>
+		<td id="products-balance-<%%VALUE(id)%%>" class="products-balance text-right"><%%SELECT%%><%%VALUE(balance)%%><%%ENDSELECT%%></td>
+		<td id="products-category-<%%VALUE(id)%%>" class="products-category "><%%SELECT%%><%%VALUE(category)%%><%%ENDSELECT%%></td>

@@ -1,0 +1,3 @@
+/app/admin/*.cache
+/app/config.php
+/app/setup.md5

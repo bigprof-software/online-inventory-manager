@@ -1,0 +1,12 @@
+<!-- Edit this file to change the layout of each record in the table view -->
+<!-- To disable clicking of a field, remove the <%%SELECT%%> and <%%ENDSELECT%%> formatters around it-->
+
+<!-- If you wish to hide the table view header that contains the column titles, -->
+<!-- add the following to the suppliers_init() hook (in hooks/suppliers.php file) -->
+<!--     $options->ShowTableHeader = 0;     -->
+
+		<td id="suppliers-supplier-<%%VALUE(id)%%>" class="suppliers-supplier"><%%SELECT%%><%%VALUE(supplier)%%><%%ENDSELECT%%></td>
+		<td id="suppliers-email-<%%VALUE(id)%%>" class="suppliers-email"><a href="mailto:<%%VALUE(email)%%>" title="<%%VALUE(email)%%>" class="btn btn-default"><i class="glyphicon glyphicon-envelope text-info"></i></a></td>
+		<td id="suppliers-phone-<%%VALUE(id)%%>" class="suppliers-phone"><%%SELECT%%><%%VALUE(phone)%%><%%ENDSELECT%%></td>
+		<td id="suppliers-contact_person-<%%VALUE(id)%%>" class="suppliers-contact_person"><%%SELECT%%><%%VALUE(contact_person)%%><%%ENDSELECT%%></td>
+		<td id="suppliers-country-<%%VALUE(id)%%>" class="suppliers-country"><%%SELECT%%><%%VALUE(country)%%><%%ENDSELECT%%></td>

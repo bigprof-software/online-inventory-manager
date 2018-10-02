@@ -1,0 +1,13 @@
+<!-- Edit this file to change the layout of each record in the table view -->
+<!-- To disable clicking of a field, remove the  and  formatters around it-->
+
+<!-- If you wish to hide the table view header that contains the column titles, -->
+<!-- add the following to the batches_init() hook (in hooks/batches.php file) -->
+<!--     $options->ShowTableHeader = 0;     -->
+
+		<td id="batches-item-<%%VALUE(id)%%>" class="batches-item"><%%VALUE(item)%%></td>
+		<td id="batches-supplier-<%%VALUE(id)%%>" class="batches-supplier"><%%VALUE(supplier)%%></td>
+		<td id="batches-batch_no-<%%VALUE(id)%%>" class="batches-batch_no"><%%VALUE(batch_no)%%></td>
+		<td id="batches-manufacturing_date-<%%VALUE(id)%%>" class="batches-manufacturing_date"><%%VALUE(manufacturing_date)%%></td>
+		<td id="batches-expiry_date-<%%VALUE(id)%%>" class="batches-expiry_date"><%%VALUE(expiry_date)%%></td>
+		<td id="batches-balance-<%%VALUE(id)%%>" class="batches-balance text-right"><%%VALUE(balance)%%></td>
