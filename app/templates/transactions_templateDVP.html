@@ -14,43 +14,50 @@
 
 <div class="panel-body">
 	<fieldset class="form-horizontal">
-		<div class="form-group" style="border-bottom: dotted 1px #DDD;">
+		<!-- Field: ID -->
+		<div class="form-group transactions-id" style="border-bottom: dotted 1px #DDD;">
 			<label class="col-xs-3 control-label">ID</label>
 			<div class="col-xs-9">
 				<div class="form-control-static"><%%VALUE(id)%%></div>
 			</div>
 		</div>
-		<div class="form-group" style="border-bottom: dotted 1px #DDD;">
+		<!-- Field: Transaction date -->
+		<div class="form-group transactions-transaction_date" style="border-bottom: dotted 1px #DDD;">
 			<label class="col-xs-3 control-label">Transaction date</label>
 			<div class="col-xs-9">
 				<div class="form-control-static"><%%COMBOTEXT(transaction_date)%%></div>
 			</div>
 		</div>
-		<div class="form-group" style="border-bottom: dotted 1px #DDD;">
+		<!-- Field: Item -->
+		<div class="form-group transactions-item" style="border-bottom: dotted 1px #DDD;">
 			<label class="col-xs-3 control-label">Item</label>
 			<div class="col-xs-9">
 				<div class="form-control-static"><span id="item<%%RND1%%>"><%%COMBOTEXT(item)%%></span></div>
 			</div>
 		</div>
-		<div class="form-group" style="border-bottom: dotted 1px #DDD;">
+		<!-- Field: Batch -->
+		<div class="form-group transactions-batch" style="border-bottom: dotted 1px #DDD;">
 			<label class="col-xs-3 control-label">Batch</label>
 			<div class="col-xs-9">
 				<div class="form-control-static"><span id="batch<%%RND1%%>"><%%COMBOTEXT(batch)%%></span></div>
 			</div>
 		</div>
-		<div class="form-group" style="border-bottom: dotted 1px #DDD;">
+		<!-- Field: Storage section -->
+		<div class="form-group transactions-section" style="border-bottom: dotted 1px #DDD;">
 			<label class="col-xs-3 control-label">Storage section</label>
 			<div class="col-xs-9">
 				<div class="form-control-static"><span id="section<%%RND1%%>"><%%COMBOTEXT(section)%%></span></div>
 			</div>
 		</div>
-		<div class="form-group" style="border-bottom: dotted 1px #DDD;">
+		<!-- Field: Transaction type -->
+		<div class="form-group transactions-transaction_type" style="border-bottom: dotted 1px #DDD;">
 			<label class="col-xs-3 control-label">Transaction type</label>
 			<div class="col-xs-9">
 				<div class="form-control-static"><%%COMBOTEXT(transaction_type)%%></div>
 			</div>
 		</div>
-		<div class="form-group" style="border-bottom: dotted 1px #DDD;">
+		<!-- Field: Quantity -->
+		<div class="form-group transactions-quantity" style="border-bottom: dotted 1px #DDD;">
 			<label class="col-xs-3 control-label">Quantity</label>
 			<div class="col-xs-9">
 				<div class="form-control-static"><%%VALUE(quantity)%%></div>

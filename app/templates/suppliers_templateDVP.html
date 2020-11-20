@@ -14,37 +14,43 @@
 
 <div class="panel-body">
 	<fieldset class="form-horizontal">
-		<div class="form-group" style="border-bottom: dotted 1px #DDD;">
+		<!-- Field: ID -->
+		<div class="form-group suppliers-id" style="border-bottom: dotted 1px #DDD;">
 			<label class="col-xs-3 control-label">ID</label>
 			<div class="col-xs-9">
 				<div class="form-control-static"><%%VALUE(id)%%></div>
 			</div>
 		</div>
-		<div class="form-group" style="border-bottom: dotted 1px #DDD;">
+		<!-- Field: Supplier -->
+		<div class="form-group suppliers-supplier" style="border-bottom: dotted 1px #DDD;">
 			<label class="col-xs-3 control-label">Supplier</label>
 			<div class="col-xs-9">
 				<div class="form-control-static"><%%VALUE(supplier)%%></div>
 			</div>
 		</div>
-		<div class="form-group" style="border-bottom: dotted 1px #DDD;">
+		<!-- Field: Email -->
+		<div class="form-group suppliers-email" style="border-bottom: dotted 1px #DDD;">
 			<label class="col-xs-3 control-label">Email</label>
 			<div class="col-xs-9">
 				<div class="form-control-static"><%%VALUE(email)%%></div>
 			</div>
 		</div>
-		<div class="form-group" style="border-bottom: dotted 1px #DDD;">
+		<!-- Field: Phone -->
+		<div class="form-group suppliers-phone" style="border-bottom: dotted 1px #DDD;">
 			<label class="col-xs-3 control-label">Phone</label>
 			<div class="col-xs-9">
 				<div class="form-control-static"><%%VALUE(phone)%%></div>
 			</div>
 		</div>
-		<div class="form-group" style="border-bottom: dotted 1px #DDD;">
+		<!-- Field: Contact person -->
+		<div class="form-group suppliers-contact_person" style="border-bottom: dotted 1px #DDD;">
 			<label class="col-xs-3 control-label">Contact person</label>
 			<div class="col-xs-9">
 				<div class="form-control-static"><%%VALUE(contact_person)%%></div>
 			</div>
 		</div>
-		<div class="form-group" style="border-bottom: dotted 1px #DDD;">
+		<!-- Field: Country -->
+		<div class="form-group suppliers-country" style="border-bottom: dotted 1px #DDD;">
 			<label class="col-xs-3 control-label">Country</label>
 			<div class="col-xs-9">
 				<div class="form-control-static"><%%COMBOTEXT(country)%%></div>
@@ -58,7 +64,7 @@
 </div>
 
 <script>
-	$j(function(){
+	$j(function() {
 		/* prevent loading child records in multiple DVP */
 		if($j('[id=suppliers-children]').length > 1) return;
 
@@ -74,7 +80,7 @@
 			apply_persisting_children
 		);
 
-		$j('form').on('click', '#children-tabs button[data-target]', function(){
+		$j('form').on('click', '#children-tabs button[data-target]', function() {
 			$j(this).toggleClass('active');
 			persist_expanded_child($j(this).attr('id'));
 		});

@@ -1,7 +1,7 @@
 <?php header('Content-type: text/css'); ?>
 
-@media (min-width: 768px){ .container{ width: 90% !important; } }
-@media (max-width: 767px){ .detail_view{ padding: 0; } }
+@media (min-width: 768px) { .container{ width: 90% !important; } }
+@media (max-width: 767px) { .detail_view{ padding: 0; } }
 @media print{
 	a[href]:after{ content: "" !important; }
 	.container{ width: 98% !important; }
@@ -42,18 +42,21 @@ li.dropdown{ display: block !important; }
 
 div.datePicker{ font-size: 1.3em; }
 .always_shown{ display: inline !important; }
+.always-shown-block { display: block !important; }
+.always-shown-inline { display: inline !important; }
+.always-shown-inline-block { display: inline-block !important; }
 .text-bold{ font-weight: bold; }
 .text-italic{ font-style: italic; }
 
 /* .form-control, .help-block .alert{ width: 90% !important; } */
 .input-group .form-control{ width: 100% !important; }
-.form-inline .form-control{ width: auto !important; }
+.admin-area .form-inline .form-control{ width: auto !important; }
 .panel .btn{ overflow: hidden; }
 
 .select2-container .select2-choice{ height: 2.4em; line-height: 2.2em; }
 .select2-container .select2-choice .select2-arrow b{ background-position: 0 -0.1em; }
 
-.navbar ul.dropdown-menu{ max-height: 400px; overflow-y: auto; }
+.navbar ul.dropdown-menu{ max-height: 90vh; overflow-y: auto; }
 
 .date_combo { padding-right: 0.5em; }
 /* .date_combo select { width: 100% !important; padding-left: 0; padding-right: 0; } */
@@ -199,3 +202,75 @@ img[src="blank.gif"] { max-height: 10px !important; }
 	font-size: 14px;
 }
 
+/* correct arrow directions in RTL pages */
+.theme-rtl #Previous .glyphicon, .theme-rtl #Next .glyphicon {
+	transform: rotate(180deg);
+}
+
+/* theme-specific compact adjustments */
+.theme-sandstone .theme-compact .btn {
+	padding: 2.5px 10px;
+}
+
+/* file upload box formatting */
+.upload-toolbox {
+	overflow-x: hidden;
+	max-width: 40rem;
+	font-size: 1.2rem;
+	text-align: left;
+	background-color: rgba(255, 255, 255, 0.15);
+}
+.theme-rtl .upload-toolbox {
+	text-align: right;
+}
+.upload-toolbox input[type="file"] {
+	display: inline-block;
+}
+.form-control-static.well {
+	margin-bottom: 0;
+}
+.file-type-error, .file-size-error {
+	margin-top: 1rem;
+}
+.clear-upload {
+	cursor: pointer;
+}
+
+/* auto-complete matches */
+.select2-result-selectable .select2-match, .select2-result-unselectable .select2-match {
+	font-weight: bold;
+	background-color: rgba(255, 255, 0, 0.5);
+}
+
+/* continuous rotation animation */
+.loop-rotate {
+	animation: spin 2s linear infinite;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+kbd {
+	background-color: #eee;
+	border-radius: 3px;
+	border: 1px solid #b4b4b4;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, .2), 0 2px 0 0 rgba(255, 255, 255, .7) inset;
+	color: #333;
+	display: inline-block;
+	font-size: .85em;
+	font-weight: 700;
+	line-height: 1;
+	padding: 4px 8px;
+	white-space: nowrap;
+}
+
+th:focus {
+	outline: thin dotted;
+}
+
+img.help-shortcuts-launcher {
+	height: 21px;
+	cursor: pointer;
+}
+
+.theme-compact .help-shortcuts-launcher-container {
+	margin: 10px !important;
+}

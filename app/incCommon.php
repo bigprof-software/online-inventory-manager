@@ -8,7 +8,7 @@
 		logInMember() -- checks POST login. If not valid, redirects to index.php, else returns TRUE
 		getTablePermissions($tn) -- returns an array of permissions allowed for logged member to given table (allowAccess, allowInsert, allowView, allowEdit, allowDelete) -- allowAccess is set to true if any access level is allowed
 		get_sql_fields($tn) -- returns the SELECT part of the table view query
-		get_sql_from($tn[, true]) -- returns the FROM part of the table view query, with full joins, optionally skipping permissions if true passed as 2nd param.
+		get_sql_from($tn[, true, [, false]]) -- returns the FROM part of the table view query, with full joins (unless third paramaeter is set to true), optionally skipping permissions if true passed as 2nd param.
 		get_joined_record($table, $id[, true]) -- returns assoc array of record values for given PK value of given table, with full joins, optionally skipping permissions if true passed as 3rd param.
 		get_defaults($table) -- returns assoc array of table fields as array keys and default values (or empty), excluding automatic values as array values
 		htmlUserBar() -- returns html code for displaying user login status to be used on top of pages.
@@ -41,25 +41,23 @@
 
 	#########################################################
 
-	function getTableList($skip_authentication = false){
-		$arrAccessTables = array();
-		$arrTables = array(
+	function getTableList($skip_authentication = false) {
+		$arrAccessTables = [];
+		$arrTables = [
 			/* 'table_name' => ['table caption', 'homepage description', 'icon', 'table group name'] */   
-			'transactions' => array('Transactions', 'Displays all incoming and outgoing transactions made for each item.', 'resources/table_icons/book_keeping.png', 'Operations'),
-			'batches' => array('Batches', 'This table lists all available batches of all items, its supplier, batch number, manufacturing and expiry date and balance.', 'resources/table_icons/box_closed.png', 'Operations'),
-			'suppliers' => array('Suppliers', 'This table lists the data of the suppliers of all items that enter the warehouse.', 'resources/table_icons/administrator.png', 'Setup'),
-			'categories' => array('Categories', 'To classify the category of each item.', 'resources/table_icons/bricks.png', 'Setup'),
-			'items' => array('Items', 'Listing of all items entering the warehouse, its code, balance and category.', 'resources/table_icons/injection.png', 'Setup'),
-			'sections' => array('Storage sections', 'Lists all available storage locations.', 'resources/table_icons/color_swatch.png', 'Setup')
-		);
+			'transactions' => ['Transactions', 'Displays all incoming and outgoing transactions made for each item.', 'resources/table_icons/book_keeping.png', 'Operations'],
+			'batches' => ['Batches', 'This table lists all available batches of all items, its supplier, batch number, manufacturing and expiry date and balance.', 'resources/table_icons/box_closed.png', 'Operations'],
+			'suppliers' => ['Suppliers', 'This table lists the data of the suppliers of all items that enter the warehouse.', 'resources/table_icons/administrator.png', 'Setup'],
+			'categories' => ['Categories', 'To classify the category of each item.', 'resources/table_icons/bricks.png', 'Setup'],
+			'items' => ['Items', 'Listing of all items entering the warehouse, its code, balance and category.', 'resources/table_icons/injection.png', 'Setup'],
+			'sections' => ['Storage sections', 'Lists all available storage locations.', 'resources/table_icons/color_swatch.png', 'Setup'],
+		];
 		if($skip_authentication || getLoggedAdmin()) return $arrTables;
 
-		if(is_array($arrTables)){
-			foreach($arrTables as $tn => $tc){
+		if(is_array($arrTables)) {
+			foreach($arrTables as $tn => $tc) {
 				$arrPerm = getTablePermissions($tn);
-				if($arrPerm[0]){
-					$arrAccessTables[$tn] = $tc;
-				}
+				if($arrPerm['access']) $arrAccessTables[$tn] = $tc;
 			}
 		}
 
@@ -68,13 +66,13 @@
 
 	#########################################################
 
-	function get_table_groups($skip_authentication = false){
+	function get_table_groups($skip_authentication = false) {
 		$tables = getTableList($skip_authentication);
-		$all_groups = array('Operations', 'Setup');
+		$all_groups = ['Operations', 'Setup'];
 
-		$groups = array();
-		foreach($all_groups as $grp){
-			foreach($tables as $tn => $td){
+		$groups = [];
+		foreach($all_groups as $grp) {
+			foreach($tables as $tn => $td) {
 				if($td[3] && $td[3] == $grp) $groups[$grp][] = $tn;
 				if(!$td[3]) $groups[0][] = $tn;
 			}
@@ -85,17 +83,17 @@
 
 	#########################################################
 
-	function getTablePermissions($tn){
-		static $table_permissions = array();
+	function getTablePermissions($tn) {
+		static $table_permissions = [];
 		if(isset($table_permissions[$tn])) return $table_permissions[$tn];
 
 		$groupID = getLoggedGroupID();
 		$memberID = makeSafe(getLoggedMemberID());
-		$res_group = sql("select tableName, allowInsert, allowView, allowEdit, allowDelete from membership_grouppermissions where groupID='{$groupID}'", $eo);
-		$res_user = sql("select tableName, allowInsert, allowView, allowEdit, allowDelete from membership_userpermissions where lcase(memberID)='{$memberID}'", $eo);
+		$res_group = sql("SELECT `tableName`, `allowInsert`, `allowView`, `allowEdit`, `allowDelete` FROM `membership_grouppermissions` WHERE `groupID`='{$groupID}'", $eo);
+		$res_user  = sql("SELECT `tableName`, `allowInsert`, `allowView`, `allowEdit`, `allowDelete` FROM `membership_userpermissions`  WHERE LCASE(`memberID`)='{$memberID}'", $eo);
 
-		while($row = db_fetch_assoc($res_group)){
-			$table_permissions[$row['tableName']] = array(
+		while($row = db_fetch_assoc($res_group)) {
+			$table_permissions[$row['tableName']] = [
 				1 => intval($row['allowInsert']),
 				2 => intval($row['allowView']),
 				3 => intval($row['allowEdit']),
@@ -104,12 +102,12 @@
 				'view' => intval($row['allowView']),
 				'edit' => intval($row['allowEdit']),
 				'delete' => intval($row['allowDelete'])
-			);
+			];
 		}
 
 		// user-specific permissions, if specified, overwrite his group permissions
-		while($row = db_fetch_assoc($res_user)){
-			$table_permissions[$row['tableName']] = array(
+		while($row = db_fetch_assoc($res_user)) {
+			$table_permissions[$row['tableName']] = [
 				1 => intval($row['allowInsert']),
 				2 => intval($row['allowView']),
 				3 => intval($row['allowEdit']),
@@ -118,14 +116,14 @@
 				'view' => intval($row['allowView']),
 				'edit' => intval($row['allowEdit']),
 				'delete' => intval($row['allowDelete'])
-			);
+			];
 		}
 
 		// if user has any type of access, set 'access' flag
-		foreach($table_permissions as $t => $p){
+		foreach($table_permissions as $t => $p) {
 			$table_permissions[$t]['access'] = $table_permissions[$t][0] = false;
 
-			if($p['insert'] || $p['view'] || $p['edit'] || $p['delete']){
+			if($p['insert'] || $p['view'] || $p['edit'] || $p['delete']) {
 				$table_permissions[$t]['access'] = $table_permissions[$t][0] = true;
 			}
 		}
@@ -135,67 +133,67 @@
 
 	#########################################################
 
-	function get_sql_fields($table_name){
-		$sql_fields = array(   
+	function get_sql_fields($table_name) {
+		$sql_fields = [
 			'transactions' => "`transactions`.`id` as 'id', if(`transactions`.`transaction_date`,date_format(`transactions`.`transaction_date`,'%m/%d/%Y'),'') as 'transaction_date', IF(    CHAR_LENGTH(`items1`.`item`), CONCAT_WS('',   `items1`.`item`), '') as 'item', IF(    CHAR_LENGTH(`batches1`.`batch_no`), CONCAT_WS('',   `batches1`.`batch_no`), '') as 'batch', IF(    CHAR_LENGTH(`sections1`.`section`), CONCAT_WS('',   `sections1`.`section`), '') as 'section', `transactions`.`transaction_type` as 'transaction_type', `transactions`.`quantity` as 'quantity'",
 			'batches' => "`batches`.`id` as 'id', IF(    CHAR_LENGTH(`items1`.`item`), CONCAT_WS('',   `items1`.`item`), '') as 'item', IF(    CHAR_LENGTH(`suppliers1`.`supplier`), CONCAT_WS('',   `suppliers1`.`supplier`), '') as 'supplier', `batches`.`batch_no` as 'batch_no', if(`batches`.`manufacturing_date`,date_format(`batches`.`manufacturing_date`,'%m/%d/%Y'),'') as 'manufacturing_date', if(`batches`.`expiry_date`,date_format(`batches`.`expiry_date`,'%m/%d/%Y'),'') as 'expiry_date', `batches`.`balance` as 'balance'",
 			'suppliers' => "`suppliers`.`id` as 'id', `suppliers`.`supplier` as 'supplier', `suppliers`.`email` as 'email', `suppliers`.`phone` as 'phone', `suppliers`.`contact_person` as 'contact_person', `suppliers`.`country` as 'country'",
 			'categories' => "`categories`.`id` as 'id', `categories`.`category` as 'category'",
 			'items' => "`items`.`id` as 'id', `items`.`item` as 'item', `items`.`code` as 'code', `items`.`balance` as 'balance', IF(    CHAR_LENGTH(`categories1`.`category`), CONCAT_WS('',   `categories1`.`category`), '') as 'category'",
-			'sections' => "`sections`.`id` as 'id', `sections`.`section` as 'section'"
-		);
+			'sections' => "`sections`.`id` as 'id', `sections`.`section` as 'section'",
+		];
 
-		if(isset($sql_fields[$table_name])){
-			return $sql_fields[$table_name];
-		}
+		if(isset($sql_fields[$table_name])) return $sql_fields[$table_name];
 
 		return false;
 	}
 
 	#########################################################
 
-	function get_sql_from($table_name, $skip_permissions = false){
-		$sql_from = array(   
+	function get_sql_from($table_name, $skip_permissions = false, $skip_joins = false, $lower_permissions = false) {
+		$sql_from = [
 			'transactions' => "`transactions` LEFT JOIN `items` as items1 ON `items1`.`id`=`transactions`.`item` LEFT JOIN `batches` as batches1 ON `batches1`.`id`=`transactions`.`batch` LEFT JOIN `sections` as sections1 ON `sections1`.`id`=`transactions`.`section` ",
 			'batches' => "`batches` LEFT JOIN `items` as items1 ON `items1`.`id`=`batches`.`item` LEFT JOIN `suppliers` as suppliers1 ON `suppliers1`.`id`=`batches`.`supplier` ",
 			'suppliers' => "`suppliers` ",
 			'categories' => "`categories` ",
 			'items' => "`items` LEFT JOIN `categories` as categories1 ON `categories1`.`id`=`items`.`category` ",
-			'sections' => "`sections` "
-		);
+			'sections' => "`sections` ",
+		];
 
-		$pkey = array(   
+		$pkey = [
 			'transactions' => 'id',
 			'batches' => 'id',
 			'suppliers' => 'id',
 			'categories' => 'id',
 			'items' => 'id',
-			'sections' => 'id'
-		);
+			'sections' => 'id',
+		];
 
-		if(isset($sql_from[$table_name])){
-			if($skip_permissions) return $sql_from[$table_name];
+		if(!isset($sql_from[$table_name])) return false;
 
-			// mm: build the query based on current member's permissions
-			$perm = getTablePermissions($table_name);
-			if($perm[2] == 1){ // view owner only
-				$sql_from[$table_name] .= ", membership_userrecords WHERE `{$table_name}`.`{$pkey[$table_name]}`=membership_userrecords.pkValue and membership_userrecords.tableName='{$table_name}' and lcase(membership_userrecords.memberID)='" . getLoggedMemberID() . "'";
-			}elseif($perm[2] == 2){ // view group only
-				$sql_from[$table_name] .= ", membership_userrecords WHERE `{$table_name}`.`{$pkey[$table_name]}`=membership_userrecords.pkValue and membership_userrecords.tableName='{$table_name}' and membership_userrecords.groupID='" . getLoggedGroupID() . "'";
-			}elseif($perm[2] == 3){ // view all
-				$sql_from[$table_name] .= ' WHERE 1=1';
-			}else{ // view none
-				return false;
-			}
-			return $sql_from[$table_name];
+		$from = ($skip_joins ? "`{$table_name}`" : $sql_from[$table_name]);
+
+		if($skip_permissions) return $from . ' WHERE 1=1';
+
+		// mm: build the query based on current member's permissions
+		// allowing lower permissions if $lower_permissions set to 'user' or 'group'
+		$perm = getTablePermissions($table_name);
+		if($perm['view'] == 1 || ($perm['view'] > 1 && $lower_permissions == 'user')) { // view owner only
+			$from .= ", `membership_userrecords` WHERE `{$table_name}`.`{$pkey[$table_name]}`=`membership_userrecords`.`pkValue` AND `membership_userrecords`.`tableName`='{$table_name}' AND LCASE(`membership_userrecords`.`memberID`)='" . getLoggedMemberID() . "'";
+		} elseif($perm['view'] == 2 || ($perm['view'] > 2 && $lower_permissions == 'group')) { // view group only
+			$from .= ", `membership_userrecords` WHERE `{$table_name}`.`{$pkey[$table_name]}`=`membership_userrecords`.`pkValue` AND `membership_userrecords`.`tableName`='{$table_name}' AND `membership_userrecords`.`groupID`='" . getLoggedGroupID() . "'";
+		} elseif($perm['view'] == 3) { // view all
+			$from .= ' WHERE 1=1';
+		} else { // view none
+			return false;
 		}
 
-		return false;
+		return $from;
 	}
 
 	#########################################################
 
-	function get_joined_record($table, $id, $skip_permissions = false){
+	function get_joined_record($table, $id, $skip_permissions = false) {
 		$sql_fields = get_sql_fields($table);
 		$sql_from = get_sql_from($table, $skip_permissions);
 
@@ -215,78 +213,83 @@
 
 	#########################################################
 
-	function get_defaults($table){
+	function get_defaults($table) {
 		/* array of tables and their fields, with default values (or empty), excluding automatic values */
-		$defaults = array(
-			'transactions' => array(
+		$defaults = [
+			'transactions' => [
 				'id' => '',
 				'transaction_date' => '1',
 				'item' => '',
 				'batch' => '',
 				'section' => '',
 				'transaction_type' => '',
-				'quantity' => '1.00'
-			),
-			'batches' => array(
+				'quantity' => '1.00',
+			],
+			'batches' => [
 				'id' => '',
 				'item' => '',
 				'supplier' => '',
 				'batch_no' => '',
 				'manufacturing_date' => '1',
 				'expiry_date' => '1',
-				'balance' => '0.00'
-			),
-			'suppliers' => array(
+				'balance' => '0.00',
+			],
+			'suppliers' => [
 				'id' => '',
 				'supplier' => '',
 				'email' => '',
 				'phone' => '',
 				'contact_person' => '',
-				'country' => ''
-			),
-			'categories' => array(
+				'country' => '',
+			],
+			'categories' => [
 				'id' => '',
-				'category' => ''
-			),
-			'items' => array(
+				'category' => '',
+			],
+			'items' => [
 				'id' => '',
 				'item' => '',
 				'code' => '',
 				'balance' => '0.00',
-				'category' => ''
-			),
-			'sections' => array(
+				'category' => '',
+			],
+			'sections' => [
 				'id' => '',
-				'section' => ''
-			)
-		);
+				'section' => '',
+			],
+		];
 
-		return isset($defaults[$table]) ? $defaults[$table] : array();
+		return isset($defaults[$table]) ? $defaults[$table] : [];
 	}
 
 	#########################################################
 
-	function logInMember(){
+	function logInMember() {
 		$redir = 'index.php';
-		if($_POST['signIn'] != ''){
-			if($_POST['username'] != '' && $_POST['password'] != ''){
+		if($_POST['signIn'] != '') {
+			if($_POST['username'] != '' && $_POST['password'] != '') {
 				$username = makeSafe(strtolower($_POST['username']));
-				$password = md5($_POST['password']);
+				$hash = sqlValue("select passMD5 from membership_users where lcase(memberID)='{$username}' and isApproved=1 and isBanned=0");
+				$password = $_POST['password'];
 
-				if(sqlValue("select count(1) from membership_users where lcase(memberID)='$username' and passMD5='$password' and isApproved=1 and isBanned=0")==1){
-					$_SESSION['memberID']=$username;
-					$_SESSION['memberGroupID']=sqlValue("select groupID from membership_users where lcase(memberID)='$username'");
-					if($_POST['rememberMe']==1){
-						@setcookie('inventory_rememberMe', md5($username.$password), time()+86400*30);
-					}else{
-						@setcookie('inventory_rememberMe', '', time()-86400*30);
+				if(password_match($password, $hash)) {
+					$_SESSION['memberID'] = $username;
+					$_SESSION['memberGroupID'] = sqlValue("SELECT `groupID` FROM `membership_users` WHERE LCASE(`memberID`)='{$username}'");
+
+					if($_POST['rememberMe'] == 1) {
+						RememberMe::login($username);
+					} else {
+						RememberMe::delete();
 					}
 
+					// harden user's password hash
+					password_harden($username, $password, $hash);
+
 					// hook: login_ok
-					if(function_exists('login_ok')){
-						$args=array();
-						if(!$redir=login_ok(getMemberInfo(), $args)){
-							$redir='index.php';
+					if(function_exists('login_ok')) {
+						$args = [];
+						if(!$redir = login_ok(getMemberInfo(), $args)) {
+							$redir = 'index.php';
 						}
 					}
 
@@ -296,35 +299,43 @@
 			}
 
 			// hook: login_failed
-			if(function_exists('login_failed')){
-				$args=array();
-				login_failed(array(
+			if(function_exists('login_failed')) {
+				$args = [];
+				login_failed([
 					'username' => $_POST['username'],
 					'password' => $_POST['password'],
 					'IP' => $_SERVER['REMOTE_ADDR']
-					), $args);
+				], $args);
 			}
 
 			if(!headers_sent()) header('HTTP/1.0 403 Forbidden');
 			redirect("index.php?loginFailed=1");
 			exit;
-		}elseif((!$_SESSION['memberID'] || $_SESSION['memberID']==$adminConfig['anonymousMember']) && $_COOKIE['inventory_rememberMe']!=''){
-			$chk=makeSafe($_COOKIE['inventory_rememberMe']);
-			if($username=sqlValue("select memberID from membership_users where convert(md5(concat(memberID, passMD5)), char)='$chk' and isBanned=0")){
-				$_SESSION['memberID']=$username;
-				$_SESSION['memberGroupID']=sqlValue("select groupID from membership_users where lcase(memberID)='$username'");
-			}
+		}
+
+		/* do we have a JWT auth header? */
+		jwt_check_login();
+
+		if(!empty($_SESSION['memberID']) && !empty($_SESSION['memberGroupID'])) return;
+
+		/* check if a rememberMe cookie exists and sign in user if so */
+		if(RememberMe::check()) {
+			$username = makeSafe(strtolower(RememberMe::user()));
+			$_SESSION['memberID'] = $username;
+			$_SESSION['memberGroupID'] = sqlValue("SELECT `groupID` FROM `membership_users` WHERE LCASE(`memberID`)='{$username}'");
 		}
 	}
 
 	#########################################################
 
-	function htmlUserBar(){
-		global $adminConfig, $Translation;
+	function htmlUserBar() {
+		global $Translation;
 		if(!defined('PREPEND_PATH')) define('PREPEND_PATH', '');
 
+		$mi = getMemberInfo();
+		$adminConfig = config('adminConfig');
+		$home_page = (basename($_SERVER['PHP_SELF']) == 'index.php');
 		ob_start();
-		$home_page = (basename($_SERVER['PHP_SELF'])=='index.php' ? true : false);
 
 		?>
 		<nav class="navbar navbar-default navbar-fixed-top hidden-print" role="navigation">
@@ -339,45 +350,49 @@
 				<a class="navbar-brand" href="<?php echo PREPEND_PATH; ?>index.php"><i class="glyphicon glyphicon-home"></i> inventory</a>
 			</div>
 			<div class="collapse navbar-collapse">
-				<ul class="nav navbar-nav">
-					<?php if(!$home_page){ ?>
-						<?php echo NavMenus(); ?>
-					<?php } ?>
-				</ul>
+				<ul class="nav navbar-nav"><?php echo ($home_page ? '' : NavMenus()); ?></ul>
 
-				<?php if(getLoggedAdmin()){ ?>
+				<?php if(userCanImport()){ ?>
+					<ul class="nav navbar-nav">
+						<a href="<?php echo PREPEND_PATH; ?>import-csv.php" class="btn btn-default navbar-btn hidden-xs btn-import-csv" title="<?php echo html_attr($Translation['import csv file']); ?>"><i class="glyphicon glyphicon-th"></i> <?php echo $Translation['import CSV']; ?></a>
+						<a href="<?php echo PREPEND_PATH; ?>import-csv.php" class="btn btn-default navbar-btn visible-xs btn-lg btn-import-csv" title="<?php echo html_attr($Translation['import csv file']); ?>"><i class="glyphicon glyphicon-th"></i> <?php echo $Translation['import CSV']; ?></a>
+					</ul>
+				<?php } ?>
+
+				<?php if($mi['admin']) { ?>
 					<ul class="nav navbar-nav">
 						<a href="<?php echo PREPEND_PATH; ?>admin/pageHome.php" class="btn btn-danger navbar-btn hidden-xs" title="<?php echo html_attr($Translation['admin area']); ?>"><i class="glyphicon glyphicon-cog"></i> <?php echo $Translation['admin area']; ?></a>
 						<a href="<?php echo PREPEND_PATH; ?>admin/pageHome.php" class="btn btn-danger navbar-btn visible-xs btn-lg" title="<?php echo html_attr($Translation['admin area']); ?>"><i class="glyphicon glyphicon-cog"></i> <?php echo $Translation['admin area']; ?></a>
 					</ul>
 				<?php } ?>
 
-				<?php if(!$_GET['signIn'] && !$_GET['loginFailed']){ ?>
-					<?php if(getLoggedMemberID() == $adminConfig['anonymousMember']){ ?>
+				<?php if(!$_GET['signIn'] && !$_GET['loginFailed']) { ?>
+					<?php if(!$mi['username'] || $mi['username'] == $adminConfig['anonymousMember']) { ?>
 						<p class="navbar-text navbar-right">&nbsp;</p>
 						<a href="<?php echo PREPEND_PATH; ?>index.php?signIn=1" class="btn btn-success navbar-btn navbar-right"><?php echo $Translation['sign in']; ?></a>
 						<p class="navbar-text navbar-right">
 							<?php echo $Translation['not signed in']; ?>
 						</p>
-					<?php }else{ ?>
+					<?php } else { ?>
 						<ul class="nav navbar-nav navbar-right hidden-xs" style="min-width: 330px;">
 							<a class="btn navbar-btn btn-default" href="<?php echo PREPEND_PATH; ?>index.php?signOut=1"><i class="glyphicon glyphicon-log-out"></i> <?php echo $Translation['sign out']; ?></a>
+
 							<p class="navbar-text">
-								<?php echo $Translation['signed as']; ?> <strong><a href="<?php echo PREPEND_PATH; ?>membership_profile.php" class="navbar-link"><?php echo getLoggedMemberID(); ?></a></strong>
+								<?php echo $Translation['signed as']; ?> <strong><a href="<?php echo PREPEND_PATH; ?>membership_profile.php" class="navbar-link"><?php echo $mi['username']; ?></a></strong>
 							</p>
 						</ul>
 						<ul class="nav navbar-nav visible-xs">
 							<a class="btn navbar-btn btn-default btn-lg visible-xs" href="<?php echo PREPEND_PATH; ?>index.php?signOut=1"><i class="glyphicon glyphicon-log-out"></i> <?php echo $Translation['sign out']; ?></a>
 							<p class="navbar-text text-center">
-								<?php echo $Translation['signed as']; ?> <strong><a href="<?php echo PREPEND_PATH; ?>membership_profile.php" class="navbar-link"><?php echo getLoggedMemberID(); ?></a></strong>
+								<?php echo $Translation['signed as']; ?> <strong><a href="<?php echo PREPEND_PATH; ?>membership_profile.php" class="navbar-link"><?php echo $mi['username']; ?></a></strong>
 							</p>
 						</ul>
 						<script>
 							/* periodically check if user is still signed in */
-							setInterval(function(){
+							setInterval(function() {
 								$j.ajax({
 									url: '<?php echo PREPEND_PATH; ?>ajax_check_login.php',
-									success: function(username){
+									success: function(username) {
 										if(!username.length) window.location = '<?php echo PREPEND_PATH; ?>index.php?signIn=1';
 									}
 								});
@@ -385,6 +400,13 @@
 						</script>
 					<?php } ?>
 				<?php } ?>
+
+				<p class="navbar-text navbar-right help-shortcuts-launcher-container hidden-xs">
+					<img
+						class="help-shortcuts-launcher" 
+						src="<?php echo PREPEND_PATH; ?>resources/images/keyboard.png" 
+						title="<?php echo html_attr($Translation['keyboard shortcuts']); ?>">
+				</p>
 			</div>
 		</nav>
 		<?php
@@ -397,52 +419,91 @@
 
 	#########################################################
 
-	function showNotifications($msg = '', $class = '', $fadeout = true){
+	function showNotifications($msg = '', $class = '', $fadeout = true) {
 		global $Translation;
+		if($error_message = strip_tags($_REQUEST['error_message']))
+			$error_message = '<div class="text-bold">' . $error_message . '</div>';
 
-		$notify_template_no_fadeout = '<div id="%%ID%%" class="alert alert-dismissable %%CLASS%%" style="display: none; padding-top: 6px; padding-bottom: 6px;">' .
-					'<button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>' .
-					'%%MSG%%</div>' .
-					'<script> jQuery(function(){ /* */ jQuery("#%%ID%%").show("slow"); }); </script>'."\n";
-		$notify_template = '<div id="%%ID%%" class="alert %%CLASS%%" style="display: none; padding-top: 6px; padding-bottom: 6px;">%%MSG%%</div>' .
-					'<script>' .
-						'jQuery(function(){' .
-							'jQuery("#%%ID%%").show("slow", function(){' .
-								'setTimeout(function(){ /* */ jQuery("#%%ID%%").hide("slow"); }, 4000);' .
-							'});' .
-						'});' .
-					'</script>'."\n";
-
-		if(!$msg){ // if no msg, use url to detect message to display
-			if($_REQUEST['record-added-ok'] != ''){
+		if(!$msg) { // if no msg, use url to detect message to display
+			if($_REQUEST['record-added-ok'] != '') {
 				$msg = $Translation['new record saved'];
 				$class = 'alert-success';
-			}elseif($_REQUEST['record-added-error'] != ''){
-				$msg = $Translation['Couldn\'t save the new record'];
+			} elseif($_REQUEST['record-added-error'] != '') {
+				$msg = $Translation['Couldn\'t save the new record'] . $error_message;
 				$class = 'alert-danger';
 				$fadeout = false;
-			}elseif($_REQUEST['record-updated-ok'] != ''){
+			} elseif($_REQUEST['record-updated-ok'] != '') {
 				$msg = $Translation['record updated'];
 				$class = 'alert-success';
-			}elseif($_REQUEST['record-updated-error'] != ''){
-				$msg = $Translation['Couldn\'t save changes to the record'];
+			} elseif($_REQUEST['record-updated-error'] != '') {
+				$msg = $Translation['Couldn\'t save changes to the record'] . $error_message;
 				$class = 'alert-danger';
 				$fadeout = false;
-			}elseif($_REQUEST['record-deleted-ok'] != ''){
+			} elseif($_REQUEST['record-deleted-ok'] != '') {
 				$msg = $Translation['The record has been deleted successfully'];
 				$class = 'alert-success';
-				$fadeout = false;
-			}elseif($_REQUEST['record-deleted-error'] != ''){
-				$msg = $Translation['Couldn\'t delete this record'];
+			} elseif($_REQUEST['record-deleted-error'] != '') {
+				$msg = $Translation['Couldn\'t delete this record'] . $error_message;
 				$class = 'alert-danger';
 				$fadeout = false;
-			}else{
+			} else {
 				return '';
 			}
 		}
 		$id = 'notification-' . rand();
 
-		$out = ($fadeout ? $notify_template : $notify_template_no_fadeout);
+		ob_start();
+		// notification template
+		?>
+		<div id="%%ID%%" class="alert alert-dismissable %%CLASS%%" style="opacity: 1; padding-top: 6px; padding-bottom: 6px; animation: fadeIn 1.5s ease-out;">
+			<button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+			%%MSG%%
+		</div>
+		<script>
+			$j(function() {
+				var autoDismiss = <?php echo $fadeout ? 'true' : 'false'; ?>,
+					embedded = !$j('nav').length,
+					messageDelay = 10, fadeDelay = 1.5;
+
+				if(!autoDismiss) {
+					if(embedded)
+						$j('#%%ID%%').before('<div style="height: 2rem;"></div>');
+					else
+						$j('#%%ID%%').css({ margin: '0 0 1rem' });
+
+					return;
+				}
+
+				// below code runs only in case of autoDismiss
+
+				if(embedded)
+					$j('#%%ID%%').css({ margin: '1rem 0 -1rem' });
+				else
+					$j('#%%ID%%').css({ margin: '-15px 0 -20px' });
+
+				setTimeout(function() {
+					$j('#%%ID%%').css({    animation: 'fadeOut ' + fadeDelay + 's ease-out' });
+				}, messageDelay * 1000);
+
+				setTimeout(function() {
+					$j('#%%ID%%').css({    visibility: 'hidden' });
+				}, (messageDelay + fadeDelay) * 1000);
+			})
+		</script>
+		<style>
+			@keyframes fadeIn {
+				0%   { opacity: 0; }
+				100% { opacity: 1; }
+			}
+			@keyframes fadeOut {
+				0%   { opacity: 1; }
+				100% { opacity: 0; }
+			}
+		</style>
+
+		<?php
+		$out = ob_get_clean();
+
 		$out = str_replace('%%ID%%', $id, $out);
 		$out = str_replace('%%MSG%%', $msg, $out);
 		$out = str_replace('%%CLASS%%', $class, $out);
@@ -452,17 +513,17 @@
 
 	#########################################################
 
-	function parseMySQLDate($date, $altDate){
+	function parseMySQLDate($date, $altDate) {
 		// is $date valid?
-		if(preg_match("/^\d{4}-\d{1,2}-\d{1,2}$/", trim($date))){
+		if(preg_match("/^\d{4}-\d{1,2}-\d{1,2}$/", trim($date))) {
 			return trim($date);
 		}
 
-		if($date != '--' && preg_match("/^\d{4}-\d{1,2}-\d{1,2}$/", trim($altDate))){
+		if($date != '--' && preg_match("/^\d{4}-\d{1,2}-\d{1,2}$/", trim($altDate))) {
 			return trim($altDate);
 		}
 
-		if($date != '--' && $altDate && intval($altDate)==$altDate){
+		if($date != '--' && $altDate && intval($altDate)==$altDate) {
 			return @date('Y-m-d', @time() + ($altDate >= 1 ? $altDate - 1 : $altDate) * 86400);
 		}
 
@@ -471,56 +532,56 @@
 
 	#########################################################
 
-	function parseCode($code, $isInsert=true, $rawData=false){
-		if($isInsert){
-			$arrCodes=array(
+	function parseCode($code, $isInsert = true, $rawData = false) {
+		if($isInsert) {
+			$arrCodes = [
 				'<%%creatorusername%%>' => $_SESSION['memberID'],
 				'<%%creatorgroupid%%>' => $_SESSION['memberGroupID'],
 				'<%%creatorip%%>' => $_SERVER['REMOTE_ADDR'],
-				'<%%creatorgroup%%>' => sqlValue("select name from membership_groups where groupID='{$_SESSION['memberGroupID']}'"),
+				'<%%creatorgroup%%>' => sqlValue("SELECT `name` FROM `membership_groups` WHERE `groupID`='{$_SESSION['memberGroupID']}'"),
 
 				'<%%creationdate%%>' => ($rawData ? @date('Y-m-d') : @date('n/j/Y')),
 				'<%%creationtime%%>' => ($rawData ? @date('H:i:s') : @date('h:i:s a')),
 				'<%%creationdatetime%%>' => ($rawData ? @date('Y-m-d H:i:s') : @date('n/j/Y h:i:s a')),
 				'<%%creationtimestamp%%>' => ($rawData ? @date('Y-m-d H:i:s') : @time())
-			);
-		}else{
-			$arrCodes=array(
+			];
+		} else {
+			$arrCodes = [
 				'<%%editorusername%%>' => $_SESSION['memberID'],
 				'<%%editorgroupid%%>' => $_SESSION['memberGroupID'],
 				'<%%editorip%%>' => $_SERVER['REMOTE_ADDR'],
-				'<%%editorgroup%%>' => sqlValue("select name from membership_groups where groupID='{$_SESSION['memberGroupID']}'"),
+				'<%%editorgroup%%>' => sqlValue("SELECT `name` FROM `membership_groups` WHERE `groupID`='{$_SESSION['memberGroupID']}'"),
 
 				'<%%editingdate%%>' => ($rawData ? @date('Y-m-d') : @date('n/j/Y')),
 				'<%%editingtime%%>' => ($rawData ? @date('H:i:s') : @date('h:i:s a')),
 				'<%%editingdatetime%%>' => ($rawData ? @date('Y-m-d H:i:s') : @date('n/j/Y h:i:s a')),
 				'<%%editingtimestamp%%>' => ($rawData ? @date('Y-m-d H:i:s') : @time())
-			);
+			];
 		}
 
-		$pc=str_ireplace(array_keys($arrCodes), array_values($arrCodes), $code);
+		$pc = str_ireplace(array_keys($arrCodes), array_values($arrCodes), $code);
 
 		return $pc;
 	}
 
 	#########################################################
 
-	function addFilter($index, $filterAnd, $filterField, $filterOperator, $filterValue){
+	function addFilter($index, $filterAnd, $filterField, $filterOperator, $filterValue) {
 		// validate input
 		if($index < 1 || $index > 80 || !is_int($index)) return false;
 		if($filterAnd != 'or')   $filterAnd = 'and';
 		$filterField = intval($filterField);
 
 		/* backward compatibility */
-		if(in_array($filterOperator, $GLOBALS['filter_operators'])){
+		if(in_array($filterOperator, $GLOBALS['filter_operators'])) {
 			$filterOperator = array_search($filterOperator, $GLOBALS['filter_operators']);
 		}
 
-		if(!in_array($filterOperator, array_keys($GLOBALS['filter_operators']))){
+		if(!in_array($filterOperator, array_keys($GLOBALS['filter_operators']))) {
 			$filterOperator = 'like';
 		}
 
-		if(!$filterField){
+		if(!$filterField) {
 			$filterOperator = '';
 			$filterValue = '';
 		}
@@ -535,22 +596,22 @@
 
 	#########################################################
 
-	function clearFilters(){
-		for($i=1; $i<=80; $i++){
+	function clearFilters() {
+		for($i=1; $i<=80; $i++) {
 			addFilter($i, '', 0, '', '');
 		}
 	}
 
 	#########################################################
 
-	if(!function_exists('str_ireplace')){
-		function str_ireplace($search, $replace, $subject){
+	if(!function_exists('str_ireplace')) {
+		function str_ireplace($search, $replace, $subject) {
 			$ret=$subject;
-			if(is_array($search)){
-				for($i=0; $i<count($search); $i++){
+			if(is_array($search)) {
+				for($i=0; $i<count($search); $i++) {
 					$ret=str_ireplace($search[$i], $replace[$i], $ret);
 				}
-			}else{
+			} else {
 				$ret=preg_replace('/'.preg_quote($search, '/').'/i', $replace, $ret);
 			}
 
@@ -566,13 +627,13 @@
 	* @param $the_data_to_pass_to_the_view (optional) associative array containing the data to pass to the view
 	* @return the output of the parsed view as a string
 	*/
-	function loadView($view, $the_data_to_pass_to_the_view=false){
+	function loadView($view, $the_data_to_pass_to_the_view=false) {
 		global $Translation;
 
 		$view = dirname(__FILE__)."/templates/$view.php";
 		if(!is_file($view)) return false;
 
-		if(is_array($the_data_to_pass_to_the_view)){
+		if(is_array($the_data_to_pass_to_the_view)) {
 			foreach($the_data_to_pass_to_the_view as $k => $v)
 				$$k = $v;
 		}
@@ -594,24 +655,24 @@
 	* @param $the_data_to_pass_to_the_table associative array containing the data to pass to the table template
 	* @return the output of the parsed table template as a string
 	*/
-	function loadTable($table_name, $the_data_to_pass_to_the_table = array()){
+	function loadTable($table_name, $the_data_to_pass_to_the_table = []) {
 		$dont_load_header = $the_data_to_pass_to_the_table['dont_load_header'];
 		$dont_load_footer = $the_data_to_pass_to_the_table['dont_load_footer'];
 
 		$header = $table = $footer = '';
 
-		if(!$dont_load_header){
+		if(!$dont_load_header) {
 			// try to load tablename-header
-			if(!($header = loadView("{$table_name}-header", $the_data_to_pass_to_the_table))){
+			if(!($header = loadView("{$table_name}-header", $the_data_to_pass_to_the_table))) {
 				$header = loadView('table-common-header', $the_data_to_pass_to_the_table);
 			}
 		}
 
 		$table = loadView($table_name, $the_data_to_pass_to_the_table);
 
-		if(!$dont_load_footer){
+		if(!$dont_load_footer) {
 			// try to load tablename-footer
-			if(!($footer = loadView("{$table_name}-footer", $the_data_to_pass_to_the_table))){
+			if(!($footer = loadView("{$table_name}-footer", $the_data_to_pass_to_the_table))) {
 				$footer = loadView('table-common-footer', $the_data_to_pass_to_the_table);
 			}
 		}
@@ -621,16 +682,16 @@
 
 	#########################################################
 
-	function filterDropdownBy($filterable, $filterers, $parentFilterers, $parentPKField, $parentCaption, $parentTable, &$filterableCombo){
+	function filterDropdownBy($filterable, $filterers, $parentFilterers, $parentPKField, $parentCaption, $parentTable, &$filterableCombo) {
 		$filterersArray = explode(',', $filterers);
 		$parentFilterersArray = explode(',', $parentFilterers);
 		$parentFiltererList = '`' . implode('`, `', $parentFilterersArray) . '`';
 		$res=sql("SELECT `$parentPKField`, $parentCaption, $parentFiltererList FROM `$parentTable` ORDER BY 2", $eo);
-		$filterableData = array();
-		while($row=db_fetch_row($res)){
+		$filterableData = [];
+		while($row=db_fetch_row($res)) {
 			$filterableData[$row[0]] = $row[1];
 			$filtererIndex = 0;
-			foreach($filterersArray as $filterer){
+			foreach($filterersArray as $filterer) {
 				$filterableDataByFilterer[$filterer][$row[$filtererIndex + 2]][$row[0]] = $row[1];
 				$filtererIndex++;
 			}
@@ -642,10 +703,10 @@
 		$jsonFilterableData = '{'.str_replace(',}', '}', $jsonFilterableData);     
 		$filterJS = "\nvar {$filterable}_data = $jsonFilterableData;";
 
-		foreach($filterersArray as $filterer){
-			if(is_array($filterableDataByFilterer[$filterer])) foreach($filterableDataByFilterer[$filterer] as $filtererItem => $filterableItem){
+		foreach($filterersArray as $filterer) {
+			if(is_array($filterableDataByFilterer[$filterer])) foreach($filterableDataByFilterer[$filterer] as $filtererItem => $filterableItem) {
 				$jsonFilterableDataByFilterer[$filterer] .= '"'.addslashes($filtererItem).'":{';
-				foreach($filterableItem as $filterableItemID => $filterableItemData){
+				foreach($filterableItem as $filterableItemID => $filterableItemData) {
 					$jsonFilterableDataByFilterer[$filterer] .= '"'.addslashes($filterableItemID).'":"'.addslashes($filterableItemData).'",';
 				}
 				$jsonFilterableDataByFilterer[$filterer] .= '},';
@@ -656,11 +717,11 @@
 			$filterJS.="\n\n// code for filtering {$filterable} by {$filterer}\n";
 			$filterJS.="\nvar {$filterable}_data_by_{$filterer} = {$jsonFilterableDataByFilterer[$filterer]}; ";
 			$filterJS.="\nvar selected_{$filterable} = \$j('#{$filterable}').val();";
-			$filterJS.="\nvar {$filterable}_change_by_{$filterer} = function(){";
+			$filterJS.="\nvar {$filterable}_change_by_{$filterer} = function() {";
 			$filterJS.="\n\t$('{$filterable}').options.length=0;";
 			$filterJS.="\n\t$('{$filterable}').options[0] = new Option();";
-			$filterJS.="\n\tif(\$j('#{$filterer}').val()){";
-			$filterJS.="\n\t\tfor({$filterable}_item in {$filterable}_data_by_{$filterer}[\$j('#{$filterer}').val()]){";
+			$filterJS.="\n\tif(\$j('#{$filterer}').val()) {";
+			$filterJS.="\n\t\tfor({$filterable}_item in {$filterable}_data_by_{$filterer}[\$j('#{$filterer}').val()]) {";
 			$filterJS.="\n\t\t\t$('{$filterable}').options[$('{$filterable}').options.length] = new Option(";
 			$filterJS.="\n\t\t\t\t{$filterable}_data_by_{$filterer}[\$j('#{$filterer}').val()][{$filterable}_item],";
 			$filterJS.="\n\t\t\t\t{$filterable}_item,";
@@ -668,8 +729,8 @@
 			$filterJS.="\n\t\t\t\t({$filterable}_item == selected_{$filterable} ? true : false)";
 			$filterJS.="\n\t\t\t);";
 			$filterJS.="\n\t\t}";
-			$filterJS.="\n\t}else{";
-			$filterJS.="\n\t\tfor({$filterable}_item in {$filterable}_data){";
+			$filterJS.="\n\t} else {";
+			$filterJS.="\n\t\tfor({$filterable}_item in {$filterable}_data) {";
 			$filterJS.="\n\t\t\t$('{$filterable}').options[$('{$filterable}').options.length] = new Option(";
 			$filterJS.="\n\t\t\t\t{$filterable}_data[{$filterable}_item],";
 			$filterJS.="\n\t\t\t\t{$filterable}_item,";
@@ -677,10 +738,10 @@
 			$filterJS.="\n\t\t\t\t({$filterable}_item == selected_{$filterable} ? true : false)";
 			$filterJS.="\n\t\t\t);";
 			$filterJS.="\n\t\t}";
-			$filterJS.="\n\t\tif(selected_{$filterable} && selected_{$filterable} == \$j('#{$filterable}').val()){";
-			$filterJS.="\n\t\t\tfor({$filterer}_item in {$filterable}_data_by_{$filterer}){";
-			$filterJS.="\n\t\t\t\tfor({$filterable}_item in {$filterable}_data_by_{$filterer}[{$filterer}_item]){";
-			$filterJS.="\n\t\t\t\t\tif({$filterable}_item == selected_{$filterable}){";
+			$filterJS.="\n\t\tif(selected_{$filterable} && selected_{$filterable} == \$j('#{$filterable}').val()) {";
+			$filterJS.="\n\t\t\tfor({$filterer}_item in {$filterable}_data_by_{$filterer}) {";
+			$filterJS.="\n\t\t\t\tfor({$filterable}_item in {$filterable}_data_by_{$filterer}[{$filterer}_item]) {";
+			$filterJS.="\n\t\t\t\t\tif({$filterable}_item == selected_{$filterable}) {";
 			$filterJS.="\n\t\t\t\t\t\t$('{$filterer}').value = {$filterer}_item;";
 			$filterJS.="\n\t\t\t\t\t\tbreak;";
 			$filterJS.="\n\t\t\t\t\t}";
@@ -691,7 +752,7 @@
 			$filterJS.="\n\t}";
 			$filterJS.="\n\t$('{$filterable}').highlight();";
 			$filterJS.="\n};";
-			$filterJS.="\n$('{$filterer}').observe('change', function(){ /* */ window.setTimeout({$filterable}_change_by_{$filterer}, 25); });";
+			$filterJS.="\n$('{$filterer}').observe('change', function() { /* */ window.setTimeout({$filterable}_change_by_{$filterer}, 25); });";
 			$filterJS.="\n";
 		}
 
@@ -706,28 +767,28 @@
 	}
 
 	#########################################################
-	function br2nl($text){
+	function br2nl($text) {
 		return  preg_replace('/\<br(\s*)?\/?\>/i', "\n", $text);
 	}
 
 	#########################################################
 
-	if(!function_exists('htmlspecialchars_decode')){
-		function htmlspecialchars_decode($string, $quote_style = ENT_COMPAT){
+	if(!function_exists('htmlspecialchars_decode')) {
+		function htmlspecialchars_decode($string, $quote_style = ENT_COMPAT) {
 			return strtr($string, array_flip(get_html_translation_table(HTML_SPECIALCHARS, $quote_style)));
 		}
 	}
 
 	#########################################################
 
-	function entitiesToUTF8($input){
+	function entitiesToUTF8($input) {
 		return preg_replace_callback('/(&#[0-9]+;)/', '_toUTF8', $input);
 	}
 
-	function _toUTF8($m){
-		if(function_exists('mb_convert_encoding')){
+	function _toUTF8($m) {
+		if(function_exists('mb_convert_encoding')) {
 			return mb_convert_encoding($m[1], "UTF-8", "HTML-ENTITIES");
-		}else{
+		} else {
 			return $m[1];
 		}
 	}
@@ -743,46 +804,46 @@
 
 	#########################################################
 
-	function permissions_sql($table, $level = 'all'){
-		if(!in_array($level, array('user', 'group'))){ $level = 'all'; }
+	function permissions_sql($table, $level = 'all') {
+		if(!in_array($level, ['user', 'group'])) { $level = 'all'; }
 		$perm = getTablePermissions($table);
 		$from = '';
 		$where = '';
 		$pk = getPKFieldName($table);
 
-		if($perm[2] == 1 || ($perm[2] > 1 && $level == 'user')){ // view owner only
+		if($perm['view'] == 1 || ($perm['view'] > 1 && $level == 'user')) { // view owner only
 			$from = 'membership_userrecords';
 			$where = "(`$table`.`$pk`=membership_userrecords.pkValue and membership_userrecords.tableName='$table' and lcase(membership_userrecords.memberID)='".getLoggedMemberID()."')";
-		}elseif($perm[2] == 2 || ($perm[2] > 2 && $level == 'group')){ // view group only
+		} elseif($perm['view'] == 2 || ($perm['view'] > 2 && $level == 'group')) { // view group only
 			$from = 'membership_userrecords';
 			$where = "(`$table`.`$pk`=membership_userrecords.pkValue and membership_userrecords.tableName='$table' and membership_userrecords.groupID='".getLoggedGroupID()."')";
-		}elseif($perm[2] == 3){ // view all
+		} elseif($perm['view'] == 3) { // view all
 			// no further action
-		}elseif($perm[2] == 0){ // view none
+		} elseif($perm['view'] == 0) { // view none
 			return false;
 		}
 
-		return array('where' => $where, 'from' => $from, 0 => $where, 1 => $from);
+		return ['where' => $where, 'from' => $from, 0 => $where, 1 => $from];
 	}
 
 	#########################################################
 
-	function error_message($msg, $back_url = '', $full_page = true){
+	function error_message($msg, $back_url = '', $full_page = true) {
 		$curr_dir = dirname(__FILE__);
 		global $Translation;
 
 		ob_start();
 
-		if($full_page) include_once($curr_dir . '/header.php');
+		if($full_page) include($curr_dir . '/header.php');
 
 		echo '<div class="panel panel-danger">';
 			echo '<div class="panel-heading"><h3 class="panel-title">' . $Translation['error:'] . '</h3></div>';
 			echo '<div class="panel-body"><p class="text-danger">' . $msg . '</p>';
-			if($back_url !== false){ // explicitly passing false suppresses the back link completely
+			if($back_url !== false) { // explicitly passing false suppresses the back link completely
 				echo '<div class="text-center">';
-				if($back_url){
+				if($back_url) {
 					echo '<a href="' . $back_url . '" class="btn btn-danger btn-lg vspacer-lg"><i class="glyphicon glyphicon-chevron-left"></i> ' . $Translation['< back'] . '</a>';
-				}else{
+				} else {
 					echo '<a href="#" class="btn btn-danger btn-lg vspacer-lg" onclick="history.go(-1); return false;"><i class="glyphicon glyphicon-chevron-left"></i> ' . $Translation['< back'] . '</a>';
 				}
 				echo '</div>';
@@ -790,17 +851,14 @@
 			echo '</div>';
 		echo '</div>';
 
-		if($full_page) include_once($curr_dir . '/footer.php');
+		if($full_page) include($curr_dir . '/footer.php');
 
-		$out = ob_get_contents();
-		ob_end_clean();
-
-		return $out;
+		return ob_get_clean();
 	}
 
 	#########################################################
 
-	function toMySQLDate($formattedDate, $sep = datalist_date_separator, $ord = datalist_date_format){
+	function toMySQLDate($formattedDate, $sep = datalist_date_separator, $ord = datalist_date_format) {
 		// extract date elements
 		$de=explode($sep, $formattedDate);
 		$mySQLDate=intval($de[strpos($ord, 'Y')]).'-'.intval($de[strpos($ord, 'm')]).'-'.intval($de[strpos($ord, 'd')]);
@@ -809,9 +867,9 @@
 
 	#########################################################
 
-	function reIndex(&$arr){
+	function reIndex(&$arr) {
 		$i=1;
-		foreach($arr as $n=>$v){
+		foreach($arr as $n=>$v) {
 			$arr2[$i]=$n;
 			$i++;
 		}
@@ -820,29 +878,29 @@
 
 	#########################################################
 
-	function get_embed($provider, $url, $max_width = '', $max_height = '', $retrieve = 'html'){
+	function get_embed($provider, $url, $max_width = '', $max_height = '', $retrieve = 'html') {
 		global $Translation;
 		if(!$url) return '';
 
-		$providers = array(
+		$providers = [
 			'youtube' => array('oembed' => 'http://www.youtube.com/oembed?'),
 			'googlemap' => array('oembed' => '', 'regex' => '/^http.*\.google\..*maps/i')
-		);
+		];
 
-		if(!isset($providers[$provider])){
+		if(!isset($providers[$provider])) {
 			return '<div class="text-danger">' . $Translation['invalid provider'] . '</div>';
 		}
 
-		if(isset($providers[$provider]['regex']) && !preg_match($providers[$provider]['regex'], $url)){
+		if(isset($providers[$provider]['regex']) && !preg_match($providers[$provider]['regex'], $url)) {
 			return '<div class="text-danger">' . $Translation['invalid url'] . '</div>';
 		}
 
-		if($providers[$provider]['oembed']){
+		if($providers[$provider]['oembed']) {
 			$oembed = $providers[$provider]['oembed'] . 'url=' . urlencode($url) . "&maxwidth={$max_width}&maxheight={$max_height}&format=json";
 			$data_json = request_cache($oembed);
 
 			$data = json_decode($data_json, true);
-			if($data === null){
+			if($data === null) {
 				/* an error was returned rather than a json string */
 				if($retrieve == 'html') return "<div class=\"text-danger\">{$data_json}\n<!-- {$oembed} --></div>";
 				return '';
@@ -859,12 +917,12 @@
 
 	#########################################################
 
-	function get_embed_googlemap($url, $max_width = '', $max_height = '', $retrieve = 'html'){
+	function get_embed_googlemap($url, $max_width = '', $max_height = '', $retrieve = 'html') {
 		global $Translation;
 		$url_parts = parse_url($url);
 		$coords_regex = '/-?\d+(\.\d+)?[,+]-?\d+(\.\d+)?(,\d{1,2}z)?/'; /* https://stackoverflow.com/questions/2660201 */
 
-		if(preg_match($coords_regex, $url_parts['path'] . '?' . $url_parts['query'], $m)){
+		if(preg_match($coords_regex, $url_parts['path'] . '?' . $url_parts['query'], $m)) {
 			list($lat, $long, $zoom) = explode(',', $m[0]);
 			$zoom = intval($zoom);
 			if(!$zoom) $zoom = 10; /* default zoom */
@@ -875,27 +933,27 @@
 			$embed_url = "https://www.google.com/maps/embed/v1/view?key={$api_key}&center={$lat},{$long}&zoom={$zoom}&maptype=roadmap";
 			$thumbnail_url = "https://maps.googleapis.com/maps/api/staticmap?key={$api_key}&center={$lat},{$long}&zoom={$zoom}&maptype=roadmap&size={$max_width}x{$max_height}";
 
-			if($retrieve == 'html'){
+			if($retrieve == 'html') {
 				return "<iframe width=\"{$max_width}\" height=\"{$max_height}\" frameborder=\"0\" style=\"border:0\" src=\"{$embed_url}\"></iframe>";
-			}else{
+			} else {
 				return $thumbnail_url;
 			}
-		}else{
+		} else {
 			return '<div class="text-danger">' . $Translation['cant retrieve coordinates from url'] . '</div>';
 		}
 	}
 
 	#########################################################
 
-	function request_cache($request, $force_fetch = false){
+	function request_cache($request, $force_fetch = false) {
 		$max_cache_lifetime = 7 * 86400; /* max cache lifetime in seconds before refreshing from source */
 
 		/* membership_cache table exists? if not, create it */
 		static $cache_table_exists = false;
-		if(!$cache_table_exists && !$force_fetch){
+		if(!$cache_table_exists && !$force_fetch) {
 			$te = sqlValue("show tables like 'membership_cache'");
-			if(!$te){
-				if(!sql("CREATE TABLE `membership_cache` (`request` VARCHAR(100) NOT NULL, `request_ts` INT, `response` TEXT NOT NULL, PRIMARY KEY (`request`))", $eo)){
+			if(!$te) {
+				if(!sql("CREATE TABLE `membership_cache` (`request` VARCHAR(100) NOT NULL, `request_ts` INT, `response` TEXT NOT NULL, PRIMARY KEY (`request`))", $eo)) {
 					/* table can't be created, so force fetching request */
 					return request_cache($request, true);
 				}
@@ -904,7 +962,7 @@
 		}
 
 		/* retrieve response from cache if exists */
-		if(!$force_fetch){
+		if(!$force_fetch) {
 			$res = sql("select response, request_ts from membership_cache where request='" . md5($request) . "'", $eo);
 			if(!$row = db_fetch_array($res)) return request_cache($request, true);
 
@@ -914,13 +972,13 @@
 		}
 
 		/* if no response in cache, issue a request */
-		if(!$response || $force_fetch){
+		if(!$response || $force_fetch) {
 			$response = @file_get_contents($request);
-			if($response === false){
+			if($response === false) {
 				$error = error_get_last();
 				$error_message = preg_replace('/.*: (.*)/', '$1', $error['message']);
 				return $error_message;
-			}elseif($cache_table_exists){
+			} elseif($cache_table_exists) {
 				/* store response in cache */
 				$ts = time();
 				sql("replace into membership_cache set request='" . md5($request) . "', request_ts='{$ts}', response='" . makeSafe($response, false) . "'", $eo);
@@ -932,7 +990,7 @@
 
 	#########################################################
 
-	function check_record_permission($table, $id, $perm = 'view'){
+	function check_record_permission($table, $id, $perm = 'view') {
 		if($perm != 'edit' && $perm != 'delete') $perm = 'view';
 
 		$perms = getTablePermissions($table);
@@ -941,15 +999,15 @@
 		$safe_id = makeSafe($id);
 		$safe_table = makeSafe($table);
 
-		if($perms[$perm] == 1){ // own records only
+		if($perms[$perm] == 1) { // own records only
 			$username = getLoggedMemberID();
 			$owner = sqlValue("select memberID from membership_userrecords where tableName='{$safe_table}' and pkValue='{$safe_id}'");
 			if($owner == $username) return true;
-		}elseif($perms[$perm] == 2){ // group records
+		} elseif($perms[$perm] == 2) { // group records
 			$group_id = getLoggedGroupID();
 			$owner_group_id = sqlValue("select groupID from membership_userrecords where tableName='{$safe_table}' and pkValue='{$safe_id}'");
 			if($owner_group_id == $group_id) return true;
-		}elseif($perms[$perm] == 3){ // all records
+		} elseif($perms[$perm] == 3) { // all records
 			return true;
 		}
 
@@ -958,16 +1016,14 @@
 
 	#########################################################
 
-	function NavMenus($options = array()){
+	function NavMenus($options = []) {
 		if(!defined('PREPEND_PATH')) define('PREPEND_PATH', '');
 		global $Translation;
 		$prepend_path = PREPEND_PATH;
 
 		/* default options */
-		if(empty($options)){
-			$options = array(
-				'tabs' => 7
-			);
+		if(empty($options)) {
+			$options = ['tabs' => 7];
 		}
 
 		$table_group_name = array_keys(get_table_groups()); /* 0 => group1, 1 => group2 .. */
@@ -978,16 +1034,16 @@
 
 		$t = time();
 		$arrTables = getTableList();
-		if(is_array($arrTables)){
-			foreach($arrTables as $tn => $tc){
+		if(is_array($arrTables)) {
+			foreach($arrTables as $tn => $tc) {
 				/* ---- list of tables where hide link in nav menu is set ---- */
-				$tChkHL = array_search($tn, array());
+				$tChkHL = array_search($tn, []);
 
 				/* ---- list of tables where filter first is set ---- */
-				$tChkFF = array_search($tn, array());
-				if($tChkFF !== false && $tChkFF !== null){
+				$tChkFF = array_search($tn, []);
+				if($tChkFF !== false && $tChkFF !== null) {
 					$searchFirst = '&Filter_x=1';
-				}else{
+				} else {
 					$searchFirst = '';
 				}
 
@@ -999,12 +1055,12 @@
 
 		// custom nav links, as defined in "hooks/links-navmenu.php" 
 		global $navLinks;
-		if(is_array($navLinks)){
+		if(is_array($navLinks)) {
 			$memberInfo = getMemberInfo();
-			$links_added = array();
-			foreach($navLinks as $link){
+			$links_added = [];
+			foreach($navLinks as $link) {
 				if(!isset($link['url']) || !isset($link['title'])) continue;
-				if($memberInfo['admin'] || @in_array($memberInfo['group'], $link['groups']) || @in_array('*', $link['groups'])){
+				if($memberInfo['admin'] || @in_array($memberInfo['group'], $link['groups']) || @in_array('*', $link['groups'])) {
 					$menu_index = intval($link['table_group']);
 					if(!$links_added[$menu_index]) $menu[$menu_index] .= '<li class="divider"></li>';
 
@@ -1019,7 +1075,7 @@
 		}
 
 		$menu_wrapper = '';
-		for($i = 0; $i < count($menu); $i++){
+		for($i = 0; $i < count($menu); $i++) {
 			$menu_wrapper .= <<<EOT
 				<li class="dropdown">
 					<a href="#" class="dropdown-toggle" data-toggle="dropdown">{$table_group_name[$i]} <b class="caret"></b></a>
@@ -1033,7 +1089,7 @@ EOT;
 
 	#########################################################
 
-	function StyleSheet(){
+	function StyleSheet() {
 		if(!defined('PREPEND_PATH')) define('PREPEND_PATH', '');
 		$prepend_path = PREPEND_PATH;
 
@@ -1051,14 +1107,14 @@ EOT;
 
 	#########################################################
 
-	function getUploadDir($dir){
+	function getUploadDir($dir) {
 		global $Translation;
 
-		if($dir==""){
+		if($dir=="") {
 			$dir=$Translation['ImageFolder'];
 		}
 
-		if(substr($dir, -1)!="/"){
+		if(substr($dir, -1)!="/") {
 			$dir.="/";
 		}
 
@@ -1067,7 +1123,7 @@ EOT;
 
 	#########################################################
 
-	function PrepareUploadedFile($FieldName, $MaxSize, $FileTypes = 'jpg|jpeg|gif|png', $NoRename = false, $dir = ''){
+	function PrepareUploadedFile($FieldName, $MaxSize, $FileTypes = 'jpg|jpeg|gif|png', $NoRename = false, $dir = '') {
 		global $Translation;
 		$f = $_FILES[$FieldName];
 		if($f['error'] == 4 || !$f['name']) return '';
@@ -1077,7 +1133,7 @@ EOT;
 		/* get php.ini upload_max_filesize in bytes */
 		$php_upload_size_limit = trim(ini_get('upload_max_filesize'));
 		$last = strtolower($php_upload_size_limit[strlen($php_upload_size_limit) - 1]);
-		switch($last){
+		switch($last) {
 			case 'g':
 				$php_upload_size_limit *= 1024;
 			case 'm':
@@ -1088,11 +1144,11 @@ EOT;
 
 		$MaxSize = min($MaxSize, $php_upload_size_limit);
 
-		if($f['size'] > $MaxSize || $f['error']){
+		if($f['size'] > $MaxSize || $f['error']) {
 			echo error_message(str_replace('<MaxSize>', intval($MaxSize / 1024), $Translation['file too large']));
 			exit;
 		}
-		if(!preg_match('/\.(' . $FileTypes . ')$/i', $f['name'], $ft)){
+		if(!preg_match('/\.(' . $FileTypes . ')$/i', $f['name'], $ft)) {
 			echo error_message(str_replace('<FileTypes>', str_replace('|', ', ', $FileTypes), $Translation['invalid file type']));
 			exit;
 		}
@@ -1102,7 +1158,7 @@ EOT;
 
 		if(!file_exists($dir)) @mkdir($dir, 0777);
 
-		if(!@move_uploaded_file($f['tmp_name'], $dir . $name)){
+		if(!@move_uploaded_file($f['tmp_name'], $dir . $name)) {
 			echo error_message("Couldn't save the uploaded file. Try chmoding the upload folder '{$dir}' to 777.");
 			exit;
 		}
@@ -1113,13 +1169,13 @@ EOT;
 
 	#########################################################
 
-	function get_home_links($homeLinks, $default_classes, $tgroup = ''){
+	function get_home_links($homeLinks, $default_classes, $tgroup = '') {
 		if(!is_array($homeLinks) || !count($homeLinks)) return '';
 
 		$memberInfo = getMemberInfo();
 
 		ob_start();
-		foreach($homeLinks as $link){
+		foreach($homeLinks as $link) {
 			if(!isset($link['url']) || !isset($link['title'])) continue;
 			if($tgroup != $link['table_group'] && $tgroup != '*') continue;
 
@@ -1128,7 +1184,7 @@ EOT;
 			if(!$link['panel_classes']) $link['panel_classes'] = $default_classes['panel'];
 			if(!$link['link_classes']) $link['link_classes'] = $default_classes['link'];
 
-			if($memberInfo['admin'] || @in_array($memberInfo['group'], $link['groups']) || @in_array('*', $link['groups'])){
+			if($memberInfo['admin'] || @in_array($memberInfo['group'], $link['groups']) || @in_array('*', $link['groups'])) {
 				?>
 				<div class="col-xs-12 <?php echo $link['grid_column_classes']; ?>">
 					<div class="panel <?php echo $link['panel_classes']; ?>">
@@ -1150,16 +1206,16 @@ EOT;
 
 	#########################################################
 
-	function quick_search_html($search_term, $label, $separate_dv = true){
+	function quick_search_html($search_term, $label, $separate_dv = true) {
 		global $Translation;
 
 		$safe_search = html_attr($search_term);
 		$safe_label = html_attr($label);
 		$safe_clear_label = html_attr($Translation['Reset Filters']);
 
-		if($separate_dv){
+		if($separate_dv) {
 			$reset_selection = "document.myform.SelectedID.value = '';";
-		}else{
+		} else {
 			$reset_selection = "document.myform.writeAttribute('novalidate', 'novalidate');";
 		}
 		$reset_selection .= ' document.myform.NoDV.value=1; return true;';

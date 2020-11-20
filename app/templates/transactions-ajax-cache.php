@@ -3,7 +3,7 @@
 	$jdata = array_map('to_utf8', array_map('nl2br', array_map('html_attr_tags_ok', $jdata)));
 ?>
 <script>
-	$j(function(){
+	$j(function() {
 		var tn = 'transactions';
 
 		/* data for selected record, or defaults if none is selected */
@@ -19,7 +19,7 @@
 		var cache = AppGini.cache[tn];
 
 		/* saved value for item */
-		cache.addCheck(function(u, d){
+		cache.addCheck(function(u, d) {
 			if(u != 'ajax_combo.php') return false;
 			if(d.t == tn && d.f == 'item' && d.id == data.item.id)
 				return { results: [ data.item ], more: false, elapsed: 0.01 };
@@ -27,7 +27,7 @@
 		});
 
 		/* saved value for batch */
-		cache.addCheck(function(u, d){
+		cache.addCheck(function(u, d) {
 			if(u != 'ajax_combo.php') return false;
 			if(d.t == tn && d.f == 'batch' && d.id == data.batch.id)
 				return { results: [ data.batch ], more: false, elapsed: 0.01 };
@@ -35,7 +35,7 @@
 		});
 
 		/* saved value for section */
-		cache.addCheck(function(u, d){
+		cache.addCheck(function(u, d) {
 			if(u != 'ajax_combo.php') return false;
 			if(d.t == tn && d.f == 'section' && d.id == data.section.id)
 				return { results: [ data.section ], more: false, elapsed: 0.01 };
