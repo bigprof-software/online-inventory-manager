@@ -6,6 +6,8 @@
 
 Easy and lean inventory management for small businesses, consultants and freelancers, created using [AppGini](https://bigprof.com/appgini/).
 
+![How OIM works](app/hooks/app-model.png)
+
 #### [⇩ Download the latest release](https://github.com/bigprof-software/online-inventory-manager/releases/latest) ([_Changelog_](https://github.com/bigprof-software/online-inventory-manager/releases))
 
 ## Features
