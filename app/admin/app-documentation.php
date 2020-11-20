@@ -5,6 +5,6 @@
 	$GLOBALS['page_title'] = $Translation['app documentation'];
 	include("{$currDir}/incHeader.php");
 
-	$app_title = 'Inventory';
+	$app_title = 'OIM';
 	
 	include("{$currDir}/incFooter.php");

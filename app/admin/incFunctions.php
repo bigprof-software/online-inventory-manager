@@ -453,7 +453,7 @@
 		$sh = @ini_get('session.save_handler');
 
 		$options = [
-			'name' => 'inventory',
+			'name' => 'OIM',
 			'save_handler' => stripos($sh, 'memcache') === false ? 'files' : $sh,
 			'serialize_handler' => 'php',
 			'cookie_lifetime' => '0',

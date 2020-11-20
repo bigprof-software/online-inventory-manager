@@ -895,27 +895,27 @@ function enforce_uniqueness(table, field) {
 
 /* persist expanded/collapsed chidren in DVP */
 function persist_expanded_child(id) {
-	var expand_these = JSON.parse(localStorage.getItem('inventory.dvp_expand'));
+	var expand_these = JSON.parse(localStorage.getItem('OIM.dvp_expand'));
 	if(expand_these == undefined) expand_these = [];
 
 	if($j('[id=' + id + ']').hasClass('active')) {
 		if(expand_these.indexOf(id) < 0) {
 			// expanded button and not persisting in cookie? save it!
 			expand_these.push(id);
-			localStorage.setItem('inventory.dvp_expand', JSON.stringify(expand_these));
+			localStorage.setItem('OIM.dvp_expand', JSON.stringify(expand_these));
 		}
 	} else {
 		if(expand_these.indexOf(id) >= 0) {
 			// collapsed button and persisting in cookie? remove it!
 			expand_these.splice(expand_these.indexOf(id), 1);
-			localStorage.setItem('inventory.dvp_expand', JSON.stringify(expand_these));
+			localStorage.setItem('OIM.dvp_expand', JSON.stringify(expand_these));
 		}
 	}
 }
 
 /* apply expanded/collapsed status to children in DVP */
 function apply_persisting_children() {
-	var expand_these = JSON.parse(localStorage.getItem('inventory.dvp_expand'));
+	var expand_these = JSON.parse(localStorage.getItem('OIM.dvp_expand'));
 	if(expand_these == undefined) return;
 
 	expand_these.each(function(id) {

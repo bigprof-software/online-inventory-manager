@@ -1,5 +1,5 @@
 <?php
-	$app_name = 'inventory';
+	$app_name = 'OIM';
 	$currDir = dirname(__FILE__);
 	include_once("{$currDir}/lib.php");
 	include_once("{$currDir}/header.php");
