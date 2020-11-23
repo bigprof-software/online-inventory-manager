@@ -26,6 +26,10 @@
 	*/
 
 	function transactions_init(&$options, $memberInfo, &$args){
+		/* Inserted by Search Page Maker for AppGini on 2020-11-23 11:04:54 */
+		$options->FilterPage = 'hooks/transactions_filter.php';
+		/* End of Search Page Maker for AppGini code */
+
 
 		return TRUE;
 	}
