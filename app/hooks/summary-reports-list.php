@@ -31,6 +31,14 @@
 							<a href ="summary-reports-transactions-0.php" class="btn btn-success all-groups btn-block btn-lg vspacer-lg summary-reports" style="padding-top: 1em; padding-bottom: 1em;">
 								<i class ="glyphicon glyphicon-th"></i> Outgoing items over time							</a>
 						</div>
+							<div class ="col-xs-12 col-md-4 col-lg-4">
+							<a href ="summary-reports-transactions-1.php" class="btn btn-success all-groups btn-block btn-lg vspacer-lg summary-reports" style="padding-top: 1em; padding-bottom: 1em;">
+								<i class ="glyphicon glyphicon-th"></i> Damaged items							</a>
+						</div>
+							<div class ="col-xs-12 col-md-4 col-lg-4">
+							<a href ="summary-reports-transactions-2.php" class="btn btn-success all-groups btn-block btn-lg vspacer-lg summary-reports" style="padding-top: 1em; padding-bottom: 1em;">
+								<i class ="glyphicon glyphicon-th"></i> Incoming items over time							</a>
+						</div>
 							
 					</div>
 				</div>
