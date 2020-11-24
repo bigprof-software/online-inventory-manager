@@ -18,3 +18,14 @@
 		'groups' => array('*'),
 		'icon' => 'hooks/summary_reports-logo-md.png'
 	);
+
+	/* calendar links */
+		$navLinks[] = array(
+			'url' => 'hooks/calendar-incoming-expired.php',
+			'icon' => 'resources/table_icons/calendar.png',
+			'title' => 'Incoming and expiring calendar',
+			'groups' => array('*'),
+			'table_group' => '0',
+		);
+
+	/* end of calendar links */

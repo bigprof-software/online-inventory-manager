@@ -27,3 +27,18 @@
 		'link_classes' => '',
 		'icon' => 'hooks/summary_reports-logo-md.png'
 	);
+
+	/* calendar links */
+		$homeLinks[] = array(
+			'url' => 'hooks/calendar-incoming-expired.php',
+			'icon' => 'resources/table_icons/calendar.png',
+			'title' => 'Incoming and expiring calendar',
+			'description' => '',
+			'groups' => array('*'),
+			'grid_column_classes' => 'col-xs-12 col-sm-6 col-md-6 col-lg-6',
+			'panel_classes' => 'panel-info',
+			'link_classes' => 'btn-info',
+			'table_group' => 'Operations',
+		);
+
+	/* end of calendar links */
