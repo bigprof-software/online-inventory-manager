@@ -8,7 +8,7 @@ Easy and lean inventory management for small businesses, consultants and freelan
 
 ![How OIM works](https://cdn.bigprof.com/appgini-open-source-apps/oim/app-model.png)
 
-#### [⇩ Download the latest release](https://github.com/bigprof-software/online-inventory-manager/releases/latest) ([_Changelog_](https://github.com/bigprof-software/online-inventory-manager/releases))
+#### [⇩ Download the latest release](https://github.com/bigprof-software/online-inventory-manager/releases/latest) ([_Changelog_](https://github.com/bigprof-software/online-inventory-manager/releases)) | [![Buy Me A Coffee!](https://cdn.bigprof.com/appgini-open-source-apps/buy-me-a-coffee-sm.png)](https://www.buymeacoffee.com/genedy)
 
 ## Features
 
