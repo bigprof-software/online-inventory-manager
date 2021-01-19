@@ -1,9 +1,10 @@
-<!-- Edit this file to change the layout of the detail view form -->
+<!-- To change the layout of the detail view form, we recommend using JS code in hooks/transactions-dv.js rather than editing this file -->
 
-<a name="detail-view"></a>
+<div id="detail-view"></div>
 <div class="panel-heading"><h3 class="panel-title"><strong><%%DETAIL_VIEW_TITLE%%></strong></h3></div>
 
-<div class="panel-body" id="transactions_dv_container">
+<div id="transactions_dv_container-loading" class="text-center text-info text-bold vspacer-lg"><i class="glyphicon glyphicon-refresh loop-rotate"></i> <%%TRANSLATION(Loading ...)%%></div>
+<div class="panel-body hidden" id="transactions_dv_container">
 	<!-- child links -->
 	<div class="row vspacer-md">
 		<div class="col-xs-12 children-links">
@@ -19,7 +20,7 @@
 				<!-- Field: ID -->
 				<div class="form-group transactions-id">
 					<hr class="hidden-md hidden-lg">
-					<label for="id" class="control-label col-lg-3">ID</label>
+					<label class="control-label col-lg-3" for="id">ID</label>
 					<div class="col-lg-9">
 						<div class="form-control-static" id="id"><%%VALUE(id)%%></div>
 					</div>
@@ -28,7 +29,7 @@
 				<!-- Field: Transaction date -->
 				<div class="form-group transactions-transaction_date">
 					<hr class="hidden-md hidden-lg">
-					<label for="transaction_date" class="control-label col-lg-3">Transaction date</label>
+					<label class="control-label col-lg-3" for="transaction_date-mm">Transaction date</label>
 					<div class="col-lg-9">
 						<%%COMBO(transaction_date)%%>
 					</div>
@@ -37,7 +38,7 @@
 				<!-- Field: Item -->
 				<div class="form-group transactions-item">
 					<hr class="hidden-md hidden-lg">
-					<label for="item" class="control-label col-lg-3" data-parent_link="view_parent_modal">Item</label>
+					<label class="control-label col-lg-3" for="item" data-parent_link="view_parent_modal">Item</label>
 					<div class="col-lg-9">
 						<div class="form-control-static" style="white-space: nowrap; overflow-x: hidden;"><%%COMBO(item)%%><%%PLINK(item)%%><%%ADDNEW(items)%%></div>
 					</div>
@@ -46,10 +47,9 @@
 				<!-- Field: Batch -->
 				<div class="form-group transactions-batch">
 					<hr class="hidden-md hidden-lg">
-					<label for="batch" class="control-label col-lg-3" data-parent_link="view_parent_modal">Batch <i class="glyphicon glyphicon-info-sign text-info" data-toggle="collapse" data-target="#batch-description"></i></label>
+					<label class="control-label col-lg-3" for="batch" data-parent_link="view_parent_modal">Batch <i class="glyphicon glyphicon-info-sign text-info" data-toggle="collapse" data-target="#batch-description"></i></label>
 					<div class="col-lg-9">
-						<span class="help-block collapse" id="batch-description"><div class="alert alert-info">If this transaction belongs to a new batch, you should <a href="batches_view.php?addNew_x=1" target="_blank">create a new batch entry</a> first.</div></span>
-
+						<span class="help-block bspacer-xs collapse" id="batch-description"><div class="alert alert-info bspacer-xs">If this transaction belongs to a new batch, you should <a href="batches_view.php?addNew_x=1" target="_blank">create a new batch entry</a> first.</div></span>
 						<div class="form-control-static" style="white-space: nowrap; overflow-x: hidden;"><%%COMBO(batch)%%><%%PLINK(batch)%%><%%ADDNEW(batches)%%></div>
 					</div>
 				</div>
@@ -57,7 +57,7 @@
 				<!-- Field: Storage section -->
 				<div class="form-group transactions-section">
 					<hr class="hidden-md hidden-lg">
-					<label for="section" class="control-label col-lg-3" data-parent_link="view_parent_modal">Storage section</label>
+					<label class="control-label col-lg-3" for="section" data-parent_link="view_parent_modal">Storage section</label>
 					<div class="col-lg-9">
 						<div class="form-control-static" style="white-space: nowrap; overflow-x: hidden;"><%%COMBO(section)%%><%%PLINK(section)%%><%%ADDNEW(sections)%%></div>
 					</div>
@@ -66,7 +66,7 @@
 				<!-- Field: Transaction type -->
 				<div class="form-group transactions-transaction_type">
 					<hr class="hidden-md hidden-lg">
-					<label for="transaction_type" class="control-label col-lg-3">Transaction type<span class="text-danger"><%%TRANSLATION(*)%%></span></label>
+					<label class="control-label col-lg-3">Transaction type<span class="text-danger"><%%TRANSLATION(*)%%></span></label>
 					<div class="col-lg-9">
 						<%%COMBO(transaction_type)%%>
 					</div>
@@ -75,10 +75,9 @@
 				<!-- Field: Quantity -->
 				<div class="form-group transactions-quantity">
 					<hr class="hidden-md hidden-lg">
-					<label for="quantity" class="control-label col-lg-3">Quantity <i class="glyphicon glyphicon-info-sign text-info" data-toggle="collapse" data-target="#quantity-description"></i></label>
+					<label class="control-label col-lg-3" for="quantity">Quantity <i class="glyphicon glyphicon-info-sign text-info" data-toggle="collapse" data-target="#quantity-description"></i></label>
 					<div class="col-lg-9">
-						<span class="help-block collapse" id="quantity-description"><div class="alert alert-info">The quantity you provide here would update the balancce of the related batch and item automatically (according to the transaction type).</div></span>
-
+						<span class="help-block bspacer-xs collapse" id="quantity-description"><div class="alert alert-info bspacer-xs">The quantity you provide here would update the balancce of the related batch and item automatically (according to the transaction type).</div></span>
 						<input maxlength="13" type="text" class="form-control" name="quantity" id="quantity" value="<%%VALUE(quantity)%%>">
 					</div>
 				</div>
@@ -123,7 +122,12 @@
 			/* enable DV action buttons to float on scrolling down the form */
 			enable_dvab_floating();
 
-			setTimeout(AppGini.focusFirstFormElement, 100);
+
+			setTimeout(function() {
+				$j('#transactions_dv_container-loading').addClass('hidden');
+				$j('#transactions_dv_container').removeClass('hidden');
+				AppGini.focusFormElement('transactions', 'transaction_date');
+			}, 1100);
 
 			$j('form').eq(0).change(function() {
 				if($j(this).data('already_changed')) return;
@@ -131,7 +135,7 @@
 				$j(this).data('already_changed', true);
 			});
 
-			$j('a[href="<%%TRANSLATION(ImageFolder)%%>"]').click(function() { /* */ return false; });
+			$j('a[href="<%%BASE_UPLOAD_PATH%%>"]').click(function() { return false; });
 
 
 			if(!embedded_mode) {

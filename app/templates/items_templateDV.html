@@ -1,9 +1,10 @@
-<!-- Edit this file to change the layout of the detail view form -->
+<!-- To change the layout of the detail view form, we recommend using JS code in hooks/items-dv.js rather than editing this file -->
 
-<a name="detail-view"></a>
+<div id="detail-view"></div>
 <div class="panel-heading"><h3 class="panel-title"><strong><%%DETAIL_VIEW_TITLE%%></strong></h3></div>
 
-<div class="panel-body" id="items_dv_container">
+<div id="items_dv_container-loading" class="text-center text-info text-bold vspacer-lg"><i class="glyphicon glyphicon-refresh loop-rotate"></i> <%%TRANSLATION(Loading ...)%%></div>
+<div class="panel-body hidden" id="items_dv_container">
 	<!-- child links -->
 	<div class="row vspacer-md">
 		<div class="col-xs-12 children-links">
@@ -26,7 +27,7 @@
 				<!-- Field: ID -->
 				<div class="form-group items-id">
 					<hr class="hidden-md hidden-lg">
-					<label for="id" class="control-label col-lg-3">ID</label>
+					<label class="control-label col-lg-3" for="id">ID</label>
 					<div class="col-lg-9">
 						<div class="form-control-static" id="id"><%%VALUE(id)%%></div>
 					</div>
@@ -35,7 +36,7 @@
 				<!-- Field: Item -->
 				<div class="form-group items-item">
 					<hr class="hidden-md hidden-lg">
-					<label for="item" class="control-label col-lg-3">Item</label>
+					<label class="control-label col-lg-3" for="item">Item</label>
 					<div class="col-lg-9">
 						<input maxlength="40" type="text" class="form-control" name="item" id="item" value="<%%VALUE(item)%%>">
 					</div>
@@ -44,7 +45,7 @@
 				<!-- Field: Code -->
 				<div class="form-group items-code">
 					<hr class="hidden-md hidden-lg">
-					<label for="code" class="control-label col-lg-3">Code</label>
+					<label class="control-label col-lg-3" for="code">Code</label>
 					<div class="col-lg-9">
 						<input maxlength="40" type="text" class="form-control" name="code" id="code" value="<%%VALUE(code)%%>">
 					</div>
@@ -53,10 +54,9 @@
 				<!-- Field: Balance -->
 				<div class="form-group items-balance">
 					<hr class="hidden-md hidden-lg">
-					<label for="balance" class="control-label col-lg-3">Balance <i class="glyphicon glyphicon-info-sign text-info" data-toggle="collapse" data-target="#balance-description"></i></label>
+					<label class="control-label col-lg-3">Balance <i class="glyphicon glyphicon-info-sign text-info" data-toggle="collapse" data-target="#balance-description"></i></label>
 					<div class="col-lg-9">
-						<span class="help-block collapse" id="balance-description"><div class="alert alert-info">This figure is updated automatically when transactions are made that involve this item.</div></span>
-
+						<span class="help-block bspacer-xs collapse" id="balance-description"><div class="alert alert-info bspacer-xs">This figure is updated automatically when transactions are made that involve this item.</div></span>
 						<div class="form-control-static" id="balance"><%%VALUE(balance)%%></div>
 					</div>
 				</div>
@@ -64,7 +64,7 @@
 				<!-- Field: Category -->
 				<div class="form-group items-category">
 					<hr class="hidden-md hidden-lg">
-					<label for="category" class="control-label col-lg-3" data-parent_link="view_parent_modal">Category</label>
+					<label class="control-label col-lg-3" for="category" data-parent_link="view_parent_modal">Category</label>
 					<div class="col-lg-9">
 						<div class="form-control-static" style="white-space: nowrap; overflow-x: hidden;"><%%COMBO(category)%%><%%PLINK(category)%%><%%ADDNEW(categories)%%></div>
 					</div>
@@ -120,7 +120,12 @@
 			/* enable DV action buttons to float on scrolling down the form */
 			enable_dvab_floating();
 
-			setTimeout(AppGini.focusFirstFormElement, 100);
+
+			setTimeout(function() {
+				$j('#items_dv_container-loading').addClass('hidden');
+				$j('#items_dv_container').removeClass('hidden');
+				AppGini.focusFormElement('items', 'item');
+			}, 1100);
 
 			$j('form').eq(0).change(function() {
 				if($j(this).data('already_changed')) return;
@@ -128,7 +133,7 @@
 				$j(this).data('already_changed', true);
 			});
 
-			$j('a[href="<%%TRANSLATION(ImageFolder)%%>"]').click(function() { /* */ return false; });
+			$j('a[href="<%%BASE_UPLOAD_PATH%%>"]').click(function() { return false; });
 
 			if(embedded_mode) {
 				/* hide links to children tables in embedded mode */

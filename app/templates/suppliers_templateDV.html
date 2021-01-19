@@ -1,9 +1,10 @@
-<!-- Edit this file to change the layout of the detail view form -->
+<!-- To change the layout of the detail view form, we recommend using JS code in hooks/suppliers-dv.js rather than editing this file -->
 
-<a name="detail-view"></a>
+<div id="detail-view"></div>
 <div class="panel-heading"><h3 class="panel-title"><strong><%%DETAIL_VIEW_TITLE%%></strong></h3></div>
 
-<div class="panel-body" id="suppliers_dv_container">
+<div id="suppliers_dv_container-loading" class="text-center text-info text-bold vspacer-lg"><i class="glyphicon glyphicon-refresh loop-rotate"></i> <%%TRANSLATION(Loading ...)%%></div>
+<div class="panel-body hidden" id="suppliers_dv_container">
 	<!-- child links -->
 	<div class="row vspacer-md">
 		<div class="col-xs-12 children-links">
@@ -23,7 +24,7 @@
 				<!-- Field: ID -->
 				<div class="form-group suppliers-id">
 					<hr class="hidden-md hidden-lg">
-					<label for="id" class="control-label col-lg-3">ID</label>
+					<label class="control-label col-lg-3" for="id">ID</label>
 					<div class="col-lg-9">
 						<div class="form-control-static" id="id"><%%VALUE(id)%%></div>
 					</div>
@@ -32,7 +33,7 @@
 				<!-- Field: Supplier -->
 				<div class="form-group suppliers-supplier">
 					<hr class="hidden-md hidden-lg">
-					<label for="supplier" class="control-label col-lg-3">Supplier</label>
+					<label class="control-label col-lg-3" for="supplier">Supplier</label>
 					<div class="col-lg-9">
 						<input maxlength="40" type="text" class="form-control" name="supplier" id="supplier" value="<%%VALUE(supplier)%%>">
 					</div>
@@ -41,21 +42,20 @@
 				<!-- Field: Email -->
 				<div class="form-group suppliers-email">
 					<hr class="hidden-md hidden-lg">
-					<label for="email" class="control-label col-lg-3">Email</label>
+					<label class="control-label col-lg-3" for="email-edit-link">Email</label>
 					<div class="col-lg-9">
-						
 						<div>
-							<a id="email-link" href="mailto:<%%VALUE(email)%%>" target="_blank"><i class="glyphicon glyphicon-envelope text-info" title="<%%VALUE(email)%%>"></i></a>
-							<label for="email"><button type="button" id="email-edit-link" class="btn btn-default hspacer-lg vspacer-sm collapsed" data-toggle="collapse" data-target="#email" title="<%%TRANSLATION(Edit)%%>"><i class="glyphicon glyphicon-pencil"></i></button></label>
-						</div>
-						<script>jQuery(function() { /* */ var e_email = '<%%VALUE(email)%%>'; if(e_email == '' || e_email == '&nbsp;' || e_email == 'blank.gif') jQuery('#email-link').hide(); });</script><input maxlength="80" type="text" class="form-control collapse" name="email" id="email" value="<%%VALUE(email)%%>">
+							<a id="email-link" href="mailto:<%%VALUE(email)%%>" target="_blank" class="rspacer-lg"><i class="glyphicon glyphicon-envelope text-info" title="<%%VALUE(email)%%>"></i></a>
+							<label for="email"><button type="button" id="email-edit-link" class="btn btn-default vspacer-sm" data-toggle="collapse" data-target="#email" title="<%%TRANSLATION(Edit)%%>"><i class="glyphicon glyphicon-pencil"></i></button></label>
+							<input maxlength="80" type="text" class="form-control collapse" name="email" id="email" value="<%%VALUE(email)%%>">
+						</div><script>jQuery(function() { var e_email = '<%%VALUE(email)%%>'; if(e_email == '' || e_email == '&nbsp;' || e_email == 'blank.gif') jQuery('#email-link').hide(); });</script>
 					</div>
 				</div>
 
 				<!-- Field: Phone -->
 				<div class="form-group suppliers-phone">
 					<hr class="hidden-md hidden-lg">
-					<label for="phone" class="control-label col-lg-3">Phone</label>
+					<label class="control-label col-lg-3" for="phone">Phone</label>
 					<div class="col-lg-9">
 						<input maxlength="40" type="text" class="form-control" name="phone" id="phone" value="<%%VALUE(phone)%%>">
 					</div>
@@ -64,7 +64,7 @@
 				<!-- Field: Contact person -->
 				<div class="form-group suppliers-contact_person">
 					<hr class="hidden-md hidden-lg">
-					<label for="contact_person" class="control-label col-lg-3">Contact person</label>
+					<label class="control-label col-lg-3" for="contact_person">Contact person</label>
 					<div class="col-lg-9">
 						<input maxlength="40" type="text" class="form-control" name="contact_person" id="contact_person" value="<%%VALUE(contact_person)%%>">
 					</div>
@@ -73,7 +73,7 @@
 				<!-- Field: Country -->
 				<div class="form-group suppliers-country">
 					<hr class="hidden-md hidden-lg">
-					<label for="country" class="control-label col-lg-3">Country</label>
+					<label class="control-label col-lg-3" for="country">Country</label>
 					<div class="col-lg-9">
 						<%%COMBO(country)%%>
 					</div>
@@ -129,7 +129,12 @@
 			/* enable DV action buttons to float on scrolling down the form */
 			enable_dvab_floating();
 
-			setTimeout(AppGini.focusFirstFormElement, 100);
+
+			setTimeout(function() {
+				$j('#suppliers_dv_container-loading').addClass('hidden');
+				$j('#suppliers_dv_container').removeClass('hidden');
+				AppGini.focusFormElement('suppliers', 'supplier');
+			}, 1100);
 
 			$j('form').eq(0).change(function() {
 				if($j(this).data('already_changed')) return;
@@ -137,7 +142,7 @@
 				$j(this).data('already_changed', true);
 			});
 
-			$j('a[href="<%%TRANSLATION(ImageFolder)%%>"]').click(function() { /* */ return false; });
+			$j('a[href="<%%BASE_UPLOAD_PATH%%>"]').click(function() { return false; });
 
 			if(embedded_mode) {
 				/* hide links to children tables in embedded mode */

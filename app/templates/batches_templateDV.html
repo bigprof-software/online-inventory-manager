@@ -1,9 +1,10 @@
-<!-- Edit this file to change the layout of the detail view form -->
+<!-- To change the layout of the detail view form, we recommend using JS code in hooks/batches-dv.js rather than editing this file -->
 
-<a name="detail-view"></a>
+<div id="detail-view"></div>
 <div class="panel-heading"><h3 class="panel-title"><strong><%%DETAIL_VIEW_TITLE%%></strong></h3></div>
 
-<div class="panel-body" id="batches_dv_container">
+<div id="batches_dv_container-loading" class="text-center text-info text-bold vspacer-lg"><i class="glyphicon glyphicon-refresh loop-rotate"></i> <%%TRANSLATION(Loading ...)%%></div>
+<div class="panel-body hidden" id="batches_dv_container">
 	<!-- child links -->
 	<div class="row vspacer-md">
 		<div class="col-xs-12 children-links">
@@ -23,7 +24,7 @@
 				<!-- Field: ID -->
 				<div class="form-group batches-id">
 					<hr class="hidden-md hidden-lg">
-					<label for="id" class="control-label col-lg-3">ID</label>
+					<label class="control-label col-lg-3" for="id">ID</label>
 					<div class="col-lg-9">
 						<div class="form-control-static" id="id"><%%VALUE(id)%%></div>
 					</div>
@@ -32,7 +33,7 @@
 				<!-- Field: Item -->
 				<div class="form-group batches-item">
 					<hr class="hidden-md hidden-lg">
-					<label for="item" class="control-label col-lg-3" data-parent_link="view_parent_modal">Item</label>
+					<label class="control-label col-lg-3" for="item" data-parent_link="view_parent_modal">Item</label>
 					<div class="col-lg-9">
 						<div class="form-control-static" style="white-space: nowrap; overflow-x: hidden;"><%%COMBO(item)%%><%%PLINK(item)%%><%%ADDNEW(items)%%></div>
 					</div>
@@ -41,7 +42,7 @@
 				<!-- Field: Supplier -->
 				<div class="form-group batches-supplier">
 					<hr class="hidden-md hidden-lg">
-					<label for="supplier" class="control-label col-lg-3" data-parent_link="view_parent_modal">Supplier</label>
+					<label class="control-label col-lg-3" for="supplier" data-parent_link="view_parent_modal">Supplier</label>
 					<div class="col-lg-9">
 						<div class="form-control-static" style="white-space: nowrap; overflow-x: hidden;"><%%COMBO(supplier)%%><%%PLINK(supplier)%%><%%ADDNEW(suppliers)%%></div>
 					</div>
@@ -50,7 +51,7 @@
 				<!-- Field: Batch code -->
 				<div class="form-group batches-batch_no">
 					<hr class="hidden-md hidden-lg">
-					<label for="batch_no" class="control-label col-lg-3">Batch code</label>
+					<label class="control-label col-lg-3" for="batch_no">Batch code</label>
 					<div class="col-lg-9">
 						<input maxlength="40" type="text" class="form-control" name="batch_no" id="batch_no" value="<%%VALUE(batch_no)%%>">
 					</div>
@@ -59,7 +60,7 @@
 				<!-- Field: Manufacturing date -->
 				<div class="form-group batches-manufacturing_date">
 					<hr class="hidden-md hidden-lg">
-					<label for="manufacturing_date" class="control-label col-lg-3">Manufacturing date</label>
+					<label class="control-label col-lg-3" for="manufacturing_date-mm">Manufacturing date</label>
 					<div class="col-lg-9">
 						<%%COMBO(manufacturing_date)%%>
 					</div>
@@ -68,7 +69,7 @@
 				<!-- Field: Expiry date -->
 				<div class="form-group batches-expiry_date">
 					<hr class="hidden-md hidden-lg">
-					<label for="expiry_date" class="control-label col-lg-3">Expiry date</label>
+					<label class="control-label col-lg-3" for="expiry_date-mm">Expiry date</label>
 					<div class="col-lg-9">
 						<%%COMBO(expiry_date)%%>
 					</div>
@@ -77,10 +78,9 @@
 				<!-- Field: Balance -->
 				<div class="form-group batches-balance">
 					<hr class="hidden-md hidden-lg">
-					<label for="balance" class="control-label col-lg-3">Balance <i class="glyphicon glyphicon-info-sign text-info" data-toggle="collapse" data-target="#balance-description"></i></label>
+					<label class="control-label col-lg-3">Balance <i class="glyphicon glyphicon-info-sign text-info" data-toggle="collapse" data-target="#balance-description"></i></label>
 					<div class="col-lg-9">
-						<span class="help-block collapse" id="balance-description"><div class="alert alert-info">This figure is updated automatically when transactions are made that involve items from this batch.</div></span>
-
+						<span class="help-block bspacer-xs collapse" id="balance-description"><div class="alert alert-info bspacer-xs">This figure is updated automatically when transactions are made that involve items from this batch.</div></span>
 						<div class="form-control-static" id="balance"><%%VALUE(balance)%%></div>
 					</div>
 				</div>
@@ -135,7 +135,12 @@
 			/* enable DV action buttons to float on scrolling down the form */
 			enable_dvab_floating();
 
-			setTimeout(AppGini.focusFirstFormElement, 100);
+
+			setTimeout(function() {
+				$j('#batches_dv_container-loading').addClass('hidden');
+				$j('#batches_dv_container').removeClass('hidden');
+				AppGini.focusFormElement('batches', 'item');
+			}, 1100);
 
 			$j('form').eq(0).change(function() {
 				if($j(this).data('already_changed')) return;
@@ -143,7 +148,7 @@
 				$j(this).data('already_changed', true);
 			});
 
-			$j('a[href="<%%TRANSLATION(ImageFolder)%%>"]').click(function() { /* */ return false; });
+			$j('a[href="<%%BASE_UPLOAD_PATH%%>"]').click(function() { return false; });
 
 			if(embedded_mode) {
 				/* hide links to children tables in embedded mode */
