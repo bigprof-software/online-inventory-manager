@@ -1,12 +1,11 @@
 <?php
-	$currDir = dirname(__FILE__);
-	require("{$currDir}/incCommon.php");
+	require(__DIR__ . '/incCommon.php');
 	$GLOBALS['page_title'] = $Translation['groups'];
-	include("{$currDir}/incHeader.php");
+	include(__DIR__ . '/incHeader.php');
 
-	if($_GET['searchGroups'] != "") {
-		$searchSQL = makeSafe($_GET['searchGroups']);
-		$searchHTML = html_attr($_GET['searchGroups']);
+	if(Request::val('searchGroups')) {
+		$searchSQL = makeSafe(Request::val('searchGroups'));
+		$searchHTML = html_attr(Request::val('searchGroups'));
 		$where = "where name like '%{$searchSQL}%' or description like '%{$searchSQL}%'";
 	} else {
 		$searchSQL = '';
@@ -23,7 +22,7 @@
 		$noResults = false;
 	}
 
-	$page = intval($_GET['page']);
+	$page = intval(Request::val('page'));
 	if($page < 1) {
 		$page = 1;
 	} elseif($page > ceil($numGroups / $adminConfig['groupsPerPage']) && !$noResults) {
@@ -74,13 +73,13 @@
 				$groupMembersCount = sqlValue("select count(1) from membership_users where groupID='$row[0]'");
 				?>
 				<tr>
-					<td><a href="pageEditGroup.php?groupID=<?php echo $row[0]; ?>"><?php echo $row[1]; ?></a></td>
-					<td><?php echo htmlspecialchars(thisOr($row[2])); ?></td>
+					<td><a href="pageEditGroup.php?groupID=<?php echo $row[0]; ?>"><?php echo htmlspecialchars($row[1]); ?></a></td>
+					<td><?php echo htmlspecialchars(trim($row[2] ?? '')); ?></td>
 					<td class="text-right"><?php echo $groupMembersCount; ?></td>
 					<td class="text-center">
 						<a href="pageEditGroup.php?groupID=<?php echo $row[0]; ?>" title="<?php echo $Translation['Edit group']; ?>"><i class="glyphicon glyphicon-pencil"></i></a>
 						<?php if(!$groupMembersCount) { ?>
-								<a href="pageDeleteGroup.php?groupID=<?php echo $row[0]; ?>" 
+								<a href="pageDeleteGroup.php?groupID=<?php echo $row[0]; ?>&csrf_token=<?php echo urlencode(csrf_token(false, true)); ?>" 
 								   title="<?php echo $Translation['delete group'] ; ?>" 
 								   onClick="return confirm('<?php echo addslashes($Translation['confirm delete group']); ?>');">
 									<i class="glyphicon glyphicon-trash text-danger"></i>
@@ -145,6 +144,4 @@
 	.form-inline .form-group{ margin: 0.5em 1em; }
 </style>
 
-<?php
-	include("{$currDir}/incFooter.php");
-?>
+<?php include(__DIR__ . '/incFooter.php');

@@ -23,7 +23,7 @@ class Request {
 	 *
 	 * @param      string  $var              The variable
 	 * @param      scalar  $default          The default value to use if $var doesn't exist, is empty, or is one of $changeToDefault
-	 * @param      array   $changeToDefault  IF $var is one of these values, treat like it's empty
+	 * @param      array   $changeToDefault  If $var is one of these values, treat like it's empty
 	 *
 	 * @return     scalar  The value as retrieved from the Request, or $default
 	 */
@@ -35,6 +35,13 @@ class Request {
 		) return $default; 
 
 		return $_REQUEST[$var];
+	}
+
+	/**
+	 * @return     bool    indicating if $var is part of request, regardless of its value
+	 */
+	public static function has($var) {
+		return isset($_REQUEST[$var]);
 	}
 
 	public static function lookup($var, $default = '') {
@@ -121,5 +128,11 @@ class Request {
 
 	public static function checkBox($var, $default = '0') {
 		return self::val($var, $default) ? 1 : 0;
+	}
+
+	public static function oneOf($var, $arrVals, $default = '')	{
+		$val = self::val($var, $default);
+		if(!in_array($val, $arrVals)) return $default;
+		return $val;
 	}
 }
