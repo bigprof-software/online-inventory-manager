@@ -1,11 +1,19 @@
-/.idea
-setup.md5
-config.php
+# ignore files containing sensitive information
+app/config.php
+app/config.bak.php
+app/file-uploader.php
+app/admin/backups/*.sql
+
+# ignore files generated dynamically by AppGini application
+app/setup.md5
+app/tmp
+app/admin/tmp
 app/plugins
-app/rand
+
+# ignore user-uploaded files
 app/images
 !app/images/index.html
-!app/images/blank*
+!app/images/blank.gif
 *.log
 *.cache
 *.zip
