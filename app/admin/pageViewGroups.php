@@ -71,30 +71,54 @@
 			$res = sql("select groupID, name, description from membership_groups $where limit $start, ".$adminConfig['groupsPerPage'], $eo);
 			while( $row = db_fetch_row($res)) {
 				$groupMembersCount = sqlValue("select count(1) from membership_users where groupID='$row[0]'");
+				$isAnonGroup = ($row[1] == $adminConfig['anonymousGroup']);
 				?>
 				<tr>
 					<td><a href="pageEditGroup.php?groupID=<?php echo $row[0]; ?>"><?php echo htmlspecialchars($row[1]); ?></a></td>
 					<td><?php echo htmlspecialchars(trim($row[2] ?? '')); ?></td>
 					<td class="text-right"><?php echo $groupMembersCount; ?></td>
 					<td class="text-center">
+						<!-- edit -->
 						<a href="pageEditGroup.php?groupID=<?php echo $row[0]; ?>" title="<?php echo $Translation['Edit group']; ?>"><i class="glyphicon glyphicon-pencil"></i></a>
+						<span class="hspacer-sm"></span>
+
+						<!-- delete -->
 						<?php if(!$groupMembersCount) { ?>
-								<a href="pageDeleteGroup.php?groupID=<?php echo $row[0]; ?>&csrf_token=<?php echo urlencode(csrf_token(false, true)); ?>" 
-								   title="<?php echo $Translation['delete group'] ; ?>" 
-								   onClick="return confirm('<?php echo addslashes($Translation['confirm delete group']); ?>');">
-									<i class="glyphicon glyphicon-trash text-danger"></i>
-								</a>
+							<a href="pageDeleteGroup.php?groupID=<?php echo $row[0]; ?>&csrf_token=<?php echo urlencode(csrf_token(false, true)); ?>" 
+								title="<?php echo $Translation['delete group'] ; ?>" 
+								onClick="return confirm('<?php echo addslashes($Translation['confirm delete group']); ?>');">
+								<i class="glyphicon glyphicon-trash text-danger"></i>
+							</a>
 						<?php } else { ?>
-								<i class="glyphicon glyphicon-trash text-muted"></i>
+							<i class="glyphicon glyphicon-trash text-muted"></i>
 						<?php } ?>
-						<a href="pageEditMember.php?groupID=<?php echo $row[0]; ?>" title="<?php echo $Translation["add new member"]; ?>"><i class="glyphicon glyphicon-plus text-success"></i></a>
-						<a href="pageViewRecords.php?groupID=<?php echo $row[0]; ?>" title="<?php echo $Translation['view group records'] ; ?>"><i class="glyphicon glyphicon-th"></i></a>
-						<?php if($groupMembersCount) { ?>
-								<a href="pageViewMembers.php?groupID=<?php echo $row[0]; ?>" title="<?php echo $Translation['view group members'] ; ?>"><i class="glyphicon glyphicon-user"></i></a>
-								<a href="pageMail.php?groupID=<?php echo $row[0]; ?>" title="<?php echo $Translation['send message to group']; ?>"><i class="glyphicon glyphicon-envelope"></i></a>
+						<span class="hspacer-sm"></span>
+
+						<!-- add member -->
+						<?php if(!$isAnonGroup) { ?>
+							<a href="pageEditMember.php?groupID=<?php echo $row[0]; ?>" title="<?php echo $Translation["add new member"]; ?>"><i class="glyphicon glyphicon-plus text-success"></i></a>
 						<?php } else { ?>
-								<i class="glyphicon glyphicon-user text-muted"></i>
-								<i class="glyphicon glyphicon-envelope text-muted"></i>
+							<i class="glyphicon glyphicon-plus text-muted"></i>
+						<?php } ?>
+						<span class="hspacer-sm"></span>
+
+						<!-- view records -->
+						<a href="pageViewRecords.php?groupID=<?php echo $row[0]; ?>" title="<?php echo $Translation['view group records'] ; ?>"><i class="glyphicon glyphicon-th"></i></a>
+						<span class="hspacer-sm"></span>
+
+						<!-- view members -->
+						<?php if($groupMembersCount) { ?>
+							<a href="pageViewMembers.php?groupID=<?php echo $row[0]; ?>" title="<?php echo $Translation['view group members'] ; ?>"><i class="glyphicon glyphicon-user"></i></a>
+						<?php } else { ?>
+							<i class="glyphicon glyphicon-user text-muted"></i>
+						<?php } ?>
+						<span class="hspacer-sm"></span>
+
+						<!-- send message -->
+						<?php if($groupMembersCount && !$isAnonGroup) { ?>
+							<a href="pageMail.php?groupID=<?php echo $row[0]; ?>" title="<?php echo $Translation['send message to group']; ?>"><i class="glyphicon glyphicon-envelope"></i></a>
+						<?php } else { ?>
+							<i class="glyphicon glyphicon-envelope text-muted"></i>
 						<?php } ?>
 					</td>
 				</tr>
@@ -107,18 +131,27 @@
 			<td colspan="4">
 				<table width="100%" cellspacing="0">
 					<tr>
+						<?php
+							// pagination
+							$prevPage = $page > 1 ? $page - 1 : false;
+							$nextPage = $page < ceil($numMembers / $adminConfig['membersPerPage']) ? $page + 1 : false;
+						?>
 						<th class="text-left" width="33%">
-							<a class="btn btn-default" href="pageViewGroups.php?searchGroups=<?php echo $searchHTML; ?>&page=<?php echo ($page > 1 ? $page - 1 : 1); ?>"><?php echo $Translation['previous']; ?></a>
+							<?php if($prevPage) { ?>
+								<a class="btn btn-default" href="pageViewGroups.php?searchGroups=<?php echo $searchHTML; ?>&page=<?php echo ($page > 1 ? $page - 1 : 1); ?>"><?php echo $Translation['previous']; ?></a>
+							<?php } ?>
 						</th>
 						<th class="text-center" width="33%">
 							<?php 
-								$originalValues =  array ('<GROUPNUM1>','<GROUPNUM2>','<GROUPS>' );
-								$replaceValues = array ( $start+1 , $start+db_num_rows($res) , $numGroups );
-								echo str_replace ( $originalValues , $replaceValues , $Translation['displaying groups'] );
+								$originalValues = ['<GROUPNUM1>', '<GROUPNUM2>', '<GROUPS>'];
+								$replaceValues = [$start + 1, $start + db_num_rows($res), $numGroups];
+								echo str_replace($originalValues, $replaceValues, $Translation['displaying groups']);
 							?>
 						</th>
 						<th class="text-right">
-							<a class="btn btn-default" href="pageViewGroups.php?searchGroups=<?php echo $searchHTML; ?>&page=<?php echo ($page < ceil($numGroups / $adminConfig['groupsPerPage']) ? $page + 1 : ceil($numGroups / $adminConfig['groupsPerPage'])); ?>"><?php echo $Translation['next'] ; ?></a>
+							<?php if($nextPage) { ?>
+								<a class="btn btn-default" href="pageViewGroups.php?searchGroups=<?php echo $searchHTML; ?>&page=<?php echo ($page < ceil($numGroups / $adminConfig['groupsPerPage']) ? $page + 1 : ceil($numGroups / $adminConfig['groupsPerPage'])); ?>"><?php echo $Translation['next'] ; ?></a>
+							<?php } ?>
 						</th>
 					</tr>
 				</table>
@@ -126,7 +159,7 @@
 		</tr>
 		<tr>
 			<th colspan="4">
-				<b><?php echo $Translation['key'] ; ?></b>
+				<b><?php echo $Translation['key']; ?></b>
 				<div class="row">
 					<div class="col-sm-6 col-md-4 col-lg-3"><i class="glyphicon glyphicon-pencil text-info"></i> <?php echo $Translation['edit group details'] ; ?></div>
 					<div class="col-sm-6 col-md-4 col-lg-3"><i class="glyphicon glyphicon-trash text-danger"></i> <?php echo $Translation['delete group'] ; ?></div>

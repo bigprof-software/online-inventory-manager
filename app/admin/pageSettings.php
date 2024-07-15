@@ -80,10 +80,11 @@
 			'dbUsername' => config('dbUsername'),
 			'dbPassword' => config('dbPassword'),
 			'dbDatabase' => config('dbDatabase'),
-			'appURI' => trim(preg_replace('/admin$/', '', dirname($_SERVER['SCRIPT_NAME'])), '/'),
+			'dbPort' => config('dbPort'),
+			'appURI' => formatUri(preg_replace('/admin$/', '', dirname($_SERVER['SCRIPT_NAME']))),
 			'host' => config('host'),
 
-			'adminConfig' => [
+			'adminConfig' => array_merge([
 				'adminUsername' => strtolower($post['adminUsername']),
 				'adminPassword' => $adminPassword,
 				'notifyAdminNewMembers' => intval($post['notifyAdminNewMembers']),
@@ -114,7 +115,9 @@
 				'smtp_pass' => $post['smtp_pass'],
 				'googleAPIKey' => $post['googleAPIKey'],
 				'baseUploadPath' => ($post['baseUploadPath'] ? $post['baseUploadPath'] : 'images'),
-			]
+			],
+			LDAP::postToSettings($post)
+			),
 		];
 
 		// save changes
@@ -294,6 +297,7 @@
 		<li><a href="#mail-settings" data-toggle="tab"><i class="glyphicon glyphicon-envelope"></i> <?php echo $Translation['Mail']; ?></a></li>
 		<li><a href="#users-settings" data-toggle="tab"><i class="glyphicon glyphicon-user"></i> <?php echo $Translation['Preconfigured users and groups']; ?></a></li>
 		<li><a href="#app-settings" data-toggle="tab"><i class="glyphicon glyphicon-cog"></i> <?php echo $Translation['Application']; ?></a></li>
+		<?php echo LDAP::settingsTab(); ?>
 	</ul>
 
 	<!-- Tab panes -->
@@ -408,6 +412,8 @@
 				'</div>'
 			); ?>
 		</div>
+
+		<?php echo LDAP::settingsTabContent(); ?>
 	</div>
 </form>
 

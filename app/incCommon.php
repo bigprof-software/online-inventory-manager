@@ -28,8 +28,7 @@
 		check_record_permission($table, $id, $perm = 'view') -- returns true if current user has the specified permission $perm ('view', 'edit' or 'delete') for the given recors, false otherwise
 		NavMenus($options) -- returns the HTML code for the top navigation menus. $options is not implemented currently.
 		StyleSheet() -- returns the HTML code for included style sheet files to be placed in the <head> section.
-		getUploadDir($dir) -- if dir is empty, returns upload dir configured in defaultLang.php, else returns $dir.
-		PrepareUploadedFile($FieldName, $MaxSize, $FileTypes='jpg|jpeg|gif|png', $NoRename=false, $dir="") -- validates and moves uploaded file for given $FieldName into the given $dir (or the default one if empty)
+		PrepareUploadedFile($FieldName, $MaxSize, $FileTypes={image file types}, $NoRename=false, $dir="") -- validates and moves uploaded file for given $FieldName into the given $dir (or the default one if empty)
 		get_home_links($homeLinks, $default_classes, $tgroup) -- process $homeLinks array and return custom links for homepage. Applies $default_classes to links if links have classes defined, and filters links by $tgroup (using '*' matches all table_group values)
 		quick_search_html($search_term, $label, $separate_dv = true) -- returns HTML code for the quick search box.
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -99,7 +98,7 @@
 			}
 		}
 
-		return $table_permissions[$tn];
+		return $table_permissions[$tn] ?? [];
 	}
 
 	#########################################################
@@ -257,7 +256,7 @@
 				<a class="navbar-brand" href="<?php echo PREPEND_PATH; ?>index.php"><i class="glyphicon glyphicon-home"></i> <?php echo APP_TITLE; ?></a>
 			</div>
 			<div class="collapse navbar-collapse">
-				<ul class="nav navbar-nav"><?php echo ($home_page ? '' : NavMenus()); ?></ul>
+				<ul class="nav navbar-nav"><?php echo ($home_page && !HOMEPAGE_NAVMENUS ? '' : NavMenus()); ?></ul>
 
 				<?php if(userCanImport()){ ?>
 					<ul class="nav navbar-nav">
@@ -275,18 +274,36 @@
 
 				<?php if(!Request::val('signIn') && !Request::val('loginFailed')) { ?>
 					<?php if(!$mi['username'] || $mi['username'] == $adminConfig['anonymousMember']) { ?>
-						<p class="navbar-text navbar-right">&nbsp;</p>
-						<a href="<?php echo PREPEND_PATH; ?>index.php?signIn=1" class="btn btn-success navbar-btn navbar-right"><?php echo $Translation['sign in']; ?></a>
-						<p class="navbar-text navbar-right">
+						<p class="navbar-text navbar-right hidden-xs">&nbsp;</p>
+						<a href="<?php echo PREPEND_PATH; ?>index.php?signIn=1" class="btn btn-success navbar-btn navbar-right hidden-xs"><?php echo $Translation['sign in']; ?></a>
+						<p class="navbar-text navbar-right hidden-xs">
 							<?php echo $Translation['not signed in']; ?>
 						</p>
+						<a href="<?php echo PREPEND_PATH; ?>index.php?signIn=1" class="btn btn-success btn-block btn-lg navbar-btn visible-xs">
+							<?php echo $Translation['not signed in']; ?>
+							<i class="glyphicon glyphicon-chevron-right"></i> 
+							<?php echo $Translation['sign in']; ?>
+						</a>
 					<?php } else { ?>
-						<ul class="nav navbar-nav navbar-right hidden-xs" style="min-width: 330px;">
-							<a class="btn navbar-btn btn-default" href="<?php echo PREPEND_PATH; ?>index.php?signOut=1"><i class="glyphicon glyphicon-log-out"></i> <?php echo $Translation['sign out']; ?></a>
-
-							<p class="navbar-text signed-in-as">
-								<?php echo $Translation['signed as']; ?> <strong><a href="<?php echo PREPEND_PATH; ?>membership_profile.php" class="navbar-link username"><?php echo $mi['username']; ?></a></strong>
-							</p>
+						<ul class="nav navbar-nav navbar-right hidden-xs">
+							<!-- logged user profile menu -->
+							<li class="dropdown" title="<?php echo html_attr("{$Translation['signed as']} {$mi['username']}"); ?>">
+								<a href="#" class="dropdown-toggle profile-menu-icon" data-toggle="dropdown"><i class="glyphicon glyphicon-user icon"></i><span class="profile-menu-text"><?php echo $mi['username']; ?></span><b class="caret"></b></a>
+								<ul class="dropdown-menu profile-menu">
+									<li class="user-profile-menu-item" title="<?php echo html_attr("{$Translation['Your info']}"); ?>">
+										<a href="<?php echo PREPEND_PATH; ?>membership_profile.php"><i class="glyphicon glyphicon-user"></i> <span class="username"><?php echo $mi['username']; ?></span></a>
+									</li>
+									<li class="keyboard-shortcuts-menu-item" title="<?php echo html_attr("{$Translation['keyboard shortcuts']}"); ?>" class="hidden-xs">
+										<a href="#" class="help-shortcuts-launcher">
+											<img src="<?php echo PREPEND_PATH; ?>resources/images/keyboard.png">
+											<?php echo html_attr($Translation['keyboard shortcuts']); ?>
+										</a>
+									</li>
+									<li class="sign-out-menu-item" title="<?php echo html_attr("{$Translation['sign out']}"); ?>">
+										<a href="<?php echo PREPEND_PATH; ?>index.php?signOut=1"><i class="glyphicon glyphicon-log-out"></i> <?php echo $Translation['sign out']; ?></a>
+									</li>
+								</ul>
+							</li>
 						</ul>
 						<ul class="nav navbar-nav visible-xs">
 							<a class="btn navbar-btn btn-default btn-lg visible-xs" href="<?php echo PREPEND_PATH; ?>index.php?signOut=1"><i class="glyphicon glyphicon-log-out"></i> <?php echo $Translation['sign out']; ?></a>
@@ -307,13 +324,6 @@
 						</script>
 					<?php } ?>
 				<?php } ?>
-
-				<p class="navbar-text navbar-right help-shortcuts-launcher-container hidden-xs">
-					<img
-						class="help-shortcuts-launcher" 
-						src="<?php echo PREPEND_PATH; ?>resources/images/keyboard.png" 
-						title="<?php echo html_attr($Translation['keyboard shortcuts']); ?>">
-				</p>
 			</div>
 		</nav>
 		<?php
@@ -359,7 +369,7 @@
 		ob_start();
 		// notification template
 		?>
-		<div id="%%ID%%" class="alert alert-dismissable %%CLASS%%" style="opacity: 1; padding-top: 6px; padding-bottom: 6px; animation: fadeIn 1.5s ease-out;">
+		<div id="%%ID%%" class="alert alert-dismissable %%CLASS%%" style="opacity: 1; padding-top: 6px; padding-bottom: 6px; animation: fadeIn 1.5s ease-out; z-index: 100; position: relative;">
 			<button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
 			%%MSG%%
 		</div>
@@ -371,7 +381,7 @@
 
 				if(!autoDismiss) {
 					if(embedded)
-						$j('#%%ID%%').before('<div style="height: 2rem;"></div>');
+						$j('#%%ID%%').before('<div class="modal-top-spacer"></div>');
 					else
 						$j('#%%ID%%').css({ margin: '0 0 1rem' });
 
@@ -491,6 +501,52 @@
 
 	#########################################################
 
+	function parseMySQLDateTime($datetime, $altDateTime) {
+		// is $datetime valid?
+		if(mysql_datetime($datetime)) return mysql_datetime($datetime);
+
+		if($altDateTime === '') return '';
+
+		// is $altDateTime valid?
+		if(mysql_datetime($altDateTime)) return mysql_datetime($altDateTime);
+
+		/* parse $altDateTime */
+		$matches = [];
+		if(!preg_match('/^([+-])(\d+)(s|m|h|d)(0)?$/', $altDateTime, $matches))
+			return '';
+
+		$sign = ($matches[1] == '-' ? -1 : 1);
+		$unit = $matches[3];
+		$qty = $matches[2];
+
+		// m0 means increment minutes, set seconds to 0
+		// h0 means increment hours, set minutes and seconds to 0
+		// d0 means increment days, set time to 00:00:00
+		$zeroTime = $matches[4] == '0';
+
+		switch($unit) {
+			case 's':
+				$seconds = $qty * $sign;
+				break;
+			case 'm':
+				$seconds = $qty * 60 * $sign;
+				if($zeroTime) return @date('Y-m-d H:i:00', @time() + $seconds);
+				break;
+			case 'h':
+				$seconds = $qty * 3600 * $sign;
+				if($zeroTime) return @date('Y-m-d H:00:00', @time() + $seconds);
+				break;
+			case 'd':
+				$seconds = $qty * 86400 * $sign;
+				if($zeroTime) return @date('Y-m-d 00:00:00', @time() + $seconds);
+				break;
+		}
+
+		return @date('Y-m-d H:i:s', @time() + $seconds);
+	}
+
+	#########################################################
+
 	function addFilter($index, $filterAnd, $filterField, $filterOperator, $filterValue) {
 		// validate input
 		if($index < 1 || $index > 80 || !is_int($index)) return false;
@@ -533,7 +589,7 @@
 	* Loads a given view from the templates folder, passing the given data to it
 	* @param $view the name of a php file (without extension) to be loaded from the 'templates' folder
 	* @param $the_data_to_pass_to_the_view (optional) associative array containing the data to pass to the view
-	* @return the output of the parsed view as a string
+	* @return string the output of the parsed view
 	*/
 	function loadView($view, $the_data_to_pass_to_the_view = false) {
 		global $Translation;
@@ -654,6 +710,9 @@
 				echo '<div class="text-center">';
 				if($back_url) {
 					echo '<a href="' . $back_url . '" class="btn btn-danger btn-lg vspacer-lg"><i class="glyphicon glyphicon-chevron-left"></i> ' . $Translation['< back'] . '</a>';
+				// in embedded mode, close modal window
+				} elseif(Request::val('Embedded')) {
+					echo '<button class="btn btn-danger btn-lg" type="button" onclick="AppGini.closeParentModal();"><i class="glyphicon glyphicon-chevron-left"></i> ' . $Translation['< back'] . '</button>';
 				} else {
 					echo '<a href="#" class="btn btn-danger btn-lg vspacer-lg" onclick="history.go(-1); return false;"><i class="glyphicon glyphicon-chevron-left"></i> ' . $Translation['< back'] . '</a>';
 				}
@@ -698,6 +757,9 @@
 			'googlemap' => ['oembed' => '', 'regex' => '/^http.*\.google\..*maps/i'],
 		];
 
+		if(!$max_height) $max_height = 360;
+		if(!$max_width) $max_width = 480;
+
 		if(!isset($providers[$provider])) {
 			return '<div class="text-danger">' . $Translation['invalid provider'] . '</div>';
 		}
@@ -715,6 +777,21 @@
 				/* an error was returned rather than a json string */
 				if($retrieve == 'html') return "<div class=\"text-danger\">{$data_json}\n<!-- {$oembed} --></div>";
 				return '';
+			}
+
+			// if html data not empty, apply max width and height in place of provided height and width
+			$provided_width = $data['width'] ?? null;
+			$provided_height = $data['height'] ?? null;
+			if($provided_width && $provided_height) {
+				$aspect_ratio = $provided_width / $provided_height;
+				if($max_width / $aspect_ratio < $max_height) {
+					$max_height = intval($max_width / $aspect_ratio);
+				} else {
+					$max_width = intval($max_height * $aspect_ratio);
+				}
+
+				$data['html'] = str_replace("width=\"{$provided_width}\"", "width=\"{$max_width}\"", $data['html']);
+				$data['html'] = str_replace("height=\"{$provided_height}\"", "height=\"{$max_height}\"", $data['html']);
 			}
 
 			return (isset($data[$retrieve]) ? $data[$retrieve] : $data['html']);
@@ -759,18 +836,10 @@
 	function request_cache($request, $force_fetch = false) {
 		$max_cache_lifetime = 7 * 86400; /* max cache lifetime in seconds before refreshing from source */
 
-		/* membership_cache table exists? if not, create it */
-		static $cache_table_exists = false;
-		if(!$cache_table_exists && !$force_fetch) {
-			$te = sqlValue("show tables like 'membership_cache'");
-			if(!$te) {
-				if(!sql("CREATE TABLE `membership_cache` (`request` VARCHAR(100) NOT NULL, `request_ts` INT, `response` TEXT NOT NULL, PRIMARY KEY (`request`))", $eo)) {
-					/* table can't be created, so force fetching request */
-					return request_cache($request, true);
-				}
-			}
-			$cache_table_exists = true;
-		}
+		// force fetching request if no cache table exists
+		$cache_table_exists = sqlValue("show tables like 'membership_cache'");
+		if(!$cache_table_exists)
+			return request_cache($request, true);
 
 		/* retrieve response from cache if exists */
 		if(!$force_fetch) {
@@ -810,13 +879,16 @@
 		$safe_id = makeSafe($id);
 		$safe_table = makeSafe($table);
 
+		// fix for zero-fill: quote id only if not numeric
+		if(!is_numeric($safe_id)) $safe_id = "'$safe_id'";
+
 		if($perms[$perm] == 1) { // own records only
 			$username = getLoggedMemberID();
-			$owner = sqlValue("select memberID from membership_userrecords where tableName='{$safe_table}' and pkValue='{$safe_id}'");
+			$owner = sqlValue("select memberID from membership_userrecords where tableName='{$safe_table}' and pkValue={$safe_id}");
 			if($owner == $username) return true;
 		} elseif($perms[$perm] == 2) { // group records
 			$group_id = getLoggedGroupID();
-			$owner_group_id = sqlValue("select groupID from membership_userrecords where tableName='{$safe_table}' and pkValue='{$safe_id}'");
+			$owner_group_id = sqlValue("select groupID from membership_userrecords where tableName='{$safe_table}' and pkValue={$safe_id}");
 			if($owner_group_id == $group_id) return true;
 		} elseif($perms[$perm] == 3) { // all records
 			return true;
@@ -903,14 +975,15 @@ EOT;
 	function StyleSheet() {
 		if(!defined('PREPEND_PATH')) define('PREPEND_PATH', '');
 		$prepend_path = PREPEND_PATH;
+		$mtime = filemtime( __DIR__ . '/dynamic.css');
 
 		$css_links = <<<EOT
 
-			<link rel="stylesheet" href="{$prepend_path}resources/initializr/css/cosmo.css">
+			<link rel="stylesheet" href="{$prepend_path}resources/initializr/css/paper.css">
 			<link rel="stylesheet" href="{$prepend_path}resources/lightbox/css/lightbox.css" media="screen">
 			<link rel="stylesheet" href="{$prepend_path}resources/select2/select2.css" media="screen">
 			<link rel="stylesheet" href="{$prepend_path}resources/timepicker/bootstrap-timepicker.min.css" media="screen">
-			<link rel="stylesheet" href="{$prepend_path}dynamic.css">
+			<link rel="stylesheet" href="{$prepend_path}dynamic.css?{$mtime}">
 EOT;
 
 		return $css_links;
@@ -918,7 +991,7 @@ EOT;
 
 	#########################################################
 
-	function PrepareUploadedFile($FieldName, $MaxSize, $FileTypes = 'jpg|jpeg|gif|png', $NoRename = false, $dir = '') {
+	function PrepareUploadedFile($FieldName, $MaxSize, $FileTypes = 'jpg|jpeg|gif|png|webp', $NoRename = false, $dir = '') {
 		global $Translation;
 		$f = $_FILES[$FieldName];
 		if($f['error'] == 4 || !$f['name']) return '';
@@ -1015,4 +1088,211 @@ EOT;
 	}
 
 	#########################################################
+
+	function getLookupFields($skipPermissions = false, $filterByPermission = 'view') {
+		$pcConfig = [
+			'transactions' => [
+				'item' => [
+					'parent-table' => 'items',
+					'parent-primary-key' => 'id',
+					'child-primary-key' => 'id',
+					'child-primary-key-index' => 0,
+					'tab-label' => 'Transactions <span class="hidden child-label-transactions child-field-caption">(Item)</span>',
+					'auto-close' => false,
+					'table-icon' => 'resources/table_icons/book_keeping.png',
+					'display-refresh' => true,
+					'display-add-new' => true,
+					'forced-where' => '',
+					'display-fields' => [1 => 'Transaction date', 2 => 'Item', 3 => 'Batch', 4 => 'Storage section', 5 => 'Transaction type', 6 => 'Quantity'],
+					'display-field-names' => [1 => 'transaction_date', 2 => 'item', 3 => 'batch', 4 => 'section', 5 => 'transaction_type', 6 => 'quantity'],
+					'sortable-fields' => [0 => '`transactions`.`id`', 1 => '`transactions`.`transaction_date`', 2 => '`items1`.`item`', 3 => '`batches1`.`batch_no`', 4 => '`sections1`.`section`', 5 => 6, 6 => '`transactions`.`quantity`'],
+					'records-per-page' => 10,
+					'default-sort-by' => 0,
+					'default-sort-direction' => 'desc',
+					'open-detail-view-on-click' => true,
+					'display-page-selector' => true,
+					'show-page-progress' => true,
+					'template' => 'children-transactions',
+					'template-printable' => 'children-transactions-printable',
+					'query' => "SELECT `transactions`.`id` as 'id', if(`transactions`.`transaction_date`,date_format(`transactions`.`transaction_date`,'%m/%d/%Y'),'') as 'transaction_date', IF(    CHAR_LENGTH(`items1`.`item`), CONCAT_WS('',   `items1`.`item`), '') as 'item', IF(    CHAR_LENGTH(`batches1`.`batch_no`), CONCAT_WS('',   `batches1`.`batch_no`), '') as 'batch', IF(    CHAR_LENGTH(`sections1`.`section`), CONCAT_WS('',   `sections1`.`section`), '') as 'section', `transactions`.`transaction_type` as 'transaction_type', `transactions`.`quantity` as 'quantity' FROM `transactions` LEFT JOIN `items` as items1 ON `items1`.`id`=`transactions`.`item` LEFT JOIN `batches` as batches1 ON `batches1`.`id`=`transactions`.`batch` LEFT JOIN `sections` as sections1 ON `sections1`.`id`=`transactions`.`section` "
+				],
+				'batch' => [
+					'parent-table' => 'batches',
+					'parent-primary-key' => 'id',
+					'child-primary-key' => 'id',
+					'child-primary-key-index' => 0,
+					'tab-label' => 'Transactions <span class="hidden child-label-transactions child-field-caption">(Batch)</span>',
+					'auto-close' => false,
+					'table-icon' => 'resources/table_icons/book_keeping.png',
+					'display-refresh' => true,
+					'display-add-new' => true,
+					'forced-where' => '',
+					'display-fields' => [1 => 'Transaction date', 2 => 'Item', 3 => 'Batch', 4 => 'Storage section', 5 => 'Transaction type', 6 => 'Quantity'],
+					'display-field-names' => [1 => 'transaction_date', 2 => 'item', 3 => 'batch', 4 => 'section', 5 => 'transaction_type', 6 => 'quantity'],
+					'sortable-fields' => [0 => '`transactions`.`id`', 1 => '`transactions`.`transaction_date`', 2 => '`items1`.`item`', 3 => '`batches1`.`batch_no`', 4 => '`sections1`.`section`', 5 => 6, 6 => '`transactions`.`quantity`'],
+					'records-per-page' => 10,
+					'default-sort-by' => 0,
+					'default-sort-direction' => 'desc',
+					'open-detail-view-on-click' => true,
+					'display-page-selector' => true,
+					'show-page-progress' => true,
+					'template' => 'children-transactions',
+					'template-printable' => 'children-transactions-printable',
+					'query' => "SELECT `transactions`.`id` as 'id', if(`transactions`.`transaction_date`,date_format(`transactions`.`transaction_date`,'%m/%d/%Y'),'') as 'transaction_date', IF(    CHAR_LENGTH(`items1`.`item`), CONCAT_WS('',   `items1`.`item`), '') as 'item', IF(    CHAR_LENGTH(`batches1`.`batch_no`), CONCAT_WS('',   `batches1`.`batch_no`), '') as 'batch', IF(    CHAR_LENGTH(`sections1`.`section`), CONCAT_WS('',   `sections1`.`section`), '') as 'section', `transactions`.`transaction_type` as 'transaction_type', `transactions`.`quantity` as 'quantity' FROM `transactions` LEFT JOIN `items` as items1 ON `items1`.`id`=`transactions`.`item` LEFT JOIN `batches` as batches1 ON `batches1`.`id`=`transactions`.`batch` LEFT JOIN `sections` as sections1 ON `sections1`.`id`=`transactions`.`section` "
+				],
+				'section' => [
+					'parent-table' => 'sections',
+					'parent-primary-key' => 'id',
+					'child-primary-key' => 'id',
+					'child-primary-key-index' => 0,
+					'tab-label' => 'Transactions <span class="hidden child-label-transactions child-field-caption">(Storage section)</span>',
+					'auto-close' => false,
+					'table-icon' => 'resources/table_icons/book_keeping.png',
+					'display-refresh' => true,
+					'display-add-new' => true,
+					'forced-where' => '',
+					'display-fields' => [1 => 'Transaction date', 2 => 'Item', 3 => 'Batch', 4 => 'Storage section', 5 => 'Transaction type', 6 => 'Quantity'],
+					'display-field-names' => [1 => 'transaction_date', 2 => 'item', 3 => 'batch', 4 => 'section', 5 => 'transaction_type', 6 => 'quantity'],
+					'sortable-fields' => [0 => '`transactions`.`id`', 1 => '`transactions`.`transaction_date`', 2 => '`items1`.`item`', 3 => '`batches1`.`batch_no`', 4 => '`sections1`.`section`', 5 => 6, 6 => '`transactions`.`quantity`'],
+					'records-per-page' => 10,
+					'default-sort-by' => 0,
+					'default-sort-direction' => 'desc',
+					'open-detail-view-on-click' => true,
+					'display-page-selector' => true,
+					'show-page-progress' => true,
+					'template' => 'children-transactions',
+					'template-printable' => 'children-transactions-printable',
+					'query' => "SELECT `transactions`.`id` as 'id', if(`transactions`.`transaction_date`,date_format(`transactions`.`transaction_date`,'%m/%d/%Y'),'') as 'transaction_date', IF(    CHAR_LENGTH(`items1`.`item`), CONCAT_WS('',   `items1`.`item`), '') as 'item', IF(    CHAR_LENGTH(`batches1`.`batch_no`), CONCAT_WS('',   `batches1`.`batch_no`), '') as 'batch', IF(    CHAR_LENGTH(`sections1`.`section`), CONCAT_WS('',   `sections1`.`section`), '') as 'section', `transactions`.`transaction_type` as 'transaction_type', `transactions`.`quantity` as 'quantity' FROM `transactions` LEFT JOIN `items` as items1 ON `items1`.`id`=`transactions`.`item` LEFT JOIN `batches` as batches1 ON `batches1`.`id`=`transactions`.`batch` LEFT JOIN `sections` as sections1 ON `sections1`.`id`=`transactions`.`section` "
+				],
+			],
+			'batches' => [
+				'item' => [
+					'parent-table' => 'items',
+					'parent-primary-key' => 'id',
+					'child-primary-key' => 'id',
+					'child-primary-key-index' => 0,
+					'tab-label' => 'Batches <span class="hidden child-label-batches child-field-caption">(Item)</span>',
+					'auto-close' => false,
+					'table-icon' => 'resources/table_icons/box_closed.png',
+					'display-refresh' => true,
+					'display-add-new' => true,
+					'forced-where' => '',
+					'display-fields' => [1 => 'Item', 2 => 'Supplier', 3 => 'Batch code', 4 => 'Manufacturing date', 5 => 'Expiry date', 6 => 'Balance'],
+					'display-field-names' => [1 => 'item', 2 => 'supplier', 3 => 'batch_no', 4 => 'manufacturing_date', 5 => 'expiry_date', 6 => 'balance'],
+					'sortable-fields' => [0 => '`batches`.`id`', 1 => '`items1`.`item`', 2 => '`suppliers1`.`supplier`', 3 => 4, 4 => '`batches`.`manufacturing_date`', 5 => '`batches`.`expiry_date`', 6 => '`batches`.`balance`'],
+					'records-per-page' => 10,
+					'default-sort-by' => 0,
+					'default-sort-direction' => 'desc',
+					'open-detail-view-on-click' => true,
+					'display-page-selector' => true,
+					'show-page-progress' => true,
+					'template' => 'children-batches',
+					'template-printable' => 'children-batches-printable',
+					'query' => "SELECT `batches`.`id` as 'id', IF(    CHAR_LENGTH(`items1`.`item`), CONCAT_WS('',   `items1`.`item`), '') as 'item', IF(    CHAR_LENGTH(`suppliers1`.`supplier`), CONCAT_WS('',   `suppliers1`.`supplier`), '') as 'supplier', `batches`.`batch_no` as 'batch_no', if(`batches`.`manufacturing_date`,date_format(`batches`.`manufacturing_date`,'%m/%d/%Y'),'') as 'manufacturing_date', if(`batches`.`expiry_date`,date_format(`batches`.`expiry_date`,'%m/%d/%Y'),'') as 'expiry_date', `batches`.`balance` as 'balance' FROM `batches` LEFT JOIN `items` as items1 ON `items1`.`id`=`batches`.`item` LEFT JOIN `suppliers` as suppliers1 ON `suppliers1`.`id`=`batches`.`supplier` "
+				],
+				'supplier' => [
+					'parent-table' => 'suppliers',
+					'parent-primary-key' => 'id',
+					'child-primary-key' => 'id',
+					'child-primary-key-index' => 0,
+					'tab-label' => 'Supplied batches <span class="hidden child-label-batches child-field-caption">(Supplier)</span>',
+					'auto-close' => false,
+					'table-icon' => 'resources/table_icons/box_closed.png',
+					'display-refresh' => true,
+					'display-add-new' => true,
+					'forced-where' => '',
+					'display-fields' => [1 => 'Item', 2 => 'Supplier', 3 => 'Batch code', 4 => 'Manufacturing date', 5 => 'Expiry date', 6 => 'Balance'],
+					'display-field-names' => [1 => 'item', 2 => 'supplier', 3 => 'batch_no', 4 => 'manufacturing_date', 5 => 'expiry_date', 6 => 'balance'],
+					'sortable-fields' => [0 => '`batches`.`id`', 1 => '`items1`.`item`', 2 => '`suppliers1`.`supplier`', 3 => 4, 4 => '`batches`.`manufacturing_date`', 5 => '`batches`.`expiry_date`', 6 => '`batches`.`balance`'],
+					'records-per-page' => 10,
+					'default-sort-by' => 0,
+					'default-sort-direction' => 'desc',
+					'open-detail-view-on-click' => true,
+					'display-page-selector' => true,
+					'show-page-progress' => true,
+					'template' => 'children-batches',
+					'template-printable' => 'children-batches-printable',
+					'query' => "SELECT `batches`.`id` as 'id', IF(    CHAR_LENGTH(`items1`.`item`), CONCAT_WS('',   `items1`.`item`), '') as 'item', IF(    CHAR_LENGTH(`suppliers1`.`supplier`), CONCAT_WS('',   `suppliers1`.`supplier`), '') as 'supplier', `batches`.`batch_no` as 'batch_no', if(`batches`.`manufacturing_date`,date_format(`batches`.`manufacturing_date`,'%m/%d/%Y'),'') as 'manufacturing_date', if(`batches`.`expiry_date`,date_format(`batches`.`expiry_date`,'%m/%d/%Y'),'') as 'expiry_date', `batches`.`balance` as 'balance' FROM `batches` LEFT JOIN `items` as items1 ON `items1`.`id`=`batches`.`item` LEFT JOIN `suppliers` as suppliers1 ON `suppliers1`.`id`=`batches`.`supplier` "
+				],
+			],
+			'suppliers' => [
+			],
+			'categories' => [
+			],
+			'items' => [
+				'category' => [
+					'parent-table' => 'categories',
+					'parent-primary-key' => 'id',
+					'child-primary-key' => 'id',
+					'child-primary-key-index' => 0,
+					'tab-label' => 'Products <span class="hidden child-label-items child-field-caption">(Category)</span>',
+					'auto-close' => false,
+					'table-icon' => 'resources/table_icons/injection.png',
+					'display-refresh' => true,
+					'display-add-new' => true,
+					'forced-where' => '',
+					'display-fields' => [1 => 'Item', 2 => 'Code', 3 => 'Balance', 4 => 'Category'],
+					'display-field-names' => [1 => 'item', 2 => 'code', 3 => 'balance', 4 => 'category'],
+					'sortable-fields' => [0 => '`items`.`id`', 1 => 2, 2 => 3, 3 => '`items`.`balance`', 4 => '`categories1`.`category`'],
+					'records-per-page' => 10,
+					'default-sort-by' => 0,
+					'default-sort-direction' => 'desc',
+					'open-detail-view-on-click' => true,
+					'display-page-selector' => true,
+					'show-page-progress' => true,
+					'template' => 'children-items',
+					'template-printable' => 'children-items-printable',
+					'query' => "SELECT `items`.`id` as 'id', `items`.`item` as 'item', `items`.`code` as 'code', `items`.`balance` as 'balance', IF(    CHAR_LENGTH(`categories1`.`category`), CONCAT_WS('',   `categories1`.`category`), '') as 'category' FROM `items` LEFT JOIN `categories` as categories1 ON `categories1`.`id`=`items`.`category` "
+				],
+			],
+			'sections' => [
+			],
+		];
+
+		if($skipPermissions) return $pcConfig;
+
+		if(!in_array($filterByPermission, ['access', 'insert', 'edit', 'delete'])) $filterByPermission = 'view';
+
+		/**
+		* dynamic configuration based on current user's permissions
+		* $userPCConfig array is populated only with parent tables where the user has access to
+		* at least one child table
+		*/
+		$userPCConfig = [];
+		foreach($pcConfig as $tn => $lookupFields) {
+			$perm = getTablePermissions($tn);
+			if(!$perm[$filterByPermission]) continue;
+
+			foreach($lookupFields as $fn => $ChildConfig) {
+				$permParent = getTablePermissions($ChildConfig['parent-table']);
+				if(!$permParent[$filterByPermission]) continue;
+
+				$userPCConfig[$tn][$fn] = $pcConfig[$tn][$fn];
+				// show add new only if configured above AND the user has insert permission
+				$userPCConfig[$tn][$fn]['display-add-new'] = ($perm['insert'] && $pcConfig[$tn][$fn]['display-add-new']);
+			}
+		}
+
+		return $userPCConfig;
+	}
+
+	#########################################################
+
+	function getChildTables($parentTable, $skipPermissions = false, $filterByPermission = 'view') {
+		$pcConfig = getLookupFields($skipPermissions, $filterByPermission);
+		$childTables = [];
+		foreach($pcConfig as $tn => $lookupFields)
+			foreach($lookupFields as $fn => $ChildConfig)
+				if($ChildConfig['parent-table'] == $parentTable)
+					$childTables[$tn][$fn] = $ChildConfig;
+
+		return $childTables;
+	}
+
+	#########################################################
+
+	function isDetailViewEnabled($tn) {
+		$tables = ['transactions', 'batches', 'suppliers', 'categories', 'items', 'sections', ];
+		return in_array($tn, $tables);
+	}
 

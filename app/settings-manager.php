@@ -26,6 +26,8 @@
 
 	// autoloading classes
 	spl_autoload_register(function($class) {
+		// convert namespace separators to directory separators
+		$class = str_replace('\\', '/', $class);
 		@include_once(APP_DIR . "/resources/lib/{$class}.php");
 	});
 
@@ -47,6 +49,7 @@
 			'dbUsername' => '',
 			'dbPassword' => '',
 			'dbDatabase' => '',
+			'dbPort' => '',
 			'appURI' => '',
 			'host' => (isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : $_SERVER['SERVER_NAME'] . ($_SERVER['SERVER_PORT'] == '80' || $_SERVER['SERVER_PORT'] == '443' ? '' : ":{$_SERVER['SERVER_PORT']}")),
 
@@ -117,11 +120,14 @@
 		@include(__DIR__ . '/admin/incConfig.php');
 		@include(configFileName());
 
+		if(empty($dbPort)) $dbPort = ini_get('mysqli.default_port');
+
 		$config_array = [
 			'dbServer' => $dbServer,
 			'dbUsername' => $dbUsername,
 			'dbPassword' => $dbPassword,
 			'dbDatabase' => $dbDatabase,
+			'dbPort' => $dbPort,
 			'adminConfig' => $adminConfig
 		];
 
@@ -141,8 +147,14 @@
 	}
 
 	function save_config($config_array = []) {
+		$conf_arr_err = ['error' => 'Invalid config array'];
+
+		if(!is_array($config_array)) return $conf_arr_err;
+		if(!isset($config_array['adminConfig'])) return $conf_arr_err;
+		if(!is_array($config_array['adminConfig'])) return $conf_arr_err;
+
 		if(!count($config_array) || !count($config_array['adminConfig']))
-			return ['error' => 'Invalid config array'];
+			return $conf_arr_err;
 
 		$new_admin_config = '';
 
@@ -157,6 +169,7 @@
 			"\t\$dbUsername = '" . addslashes($config_array['dbUsername']) . "';\n" .
 			"\t\$dbPassword = '" . addslashes($config_array['dbPassword']) . "';\n" .
 			"\t\$dbDatabase = '" . addslashes($config_array['dbDatabase']) . "';\n" .
+			"\t\$dbPort = '" . addslashes($config_array['dbPort']) . "';\n" .
 
 			(isset($config_array['appURI']) ? "\t\$appURI = '" . addslashes($config_array['appURI']) . "';\n" : '') .
 			(isset($config_array['host']) ? "\t\$host = '" . addslashes($config_array['host']) . "';\n" : '') .
@@ -189,10 +202,13 @@
 		if(empty($config) || $force_reload) {
 			@include(configFileName());
 
+			if(empty($dbPort)) $dbPort = ini_get('mysqli.default_port');
+
 			$config['dbServer'] = $dbServer;
 			$config['dbDatabase'] = $dbDatabase;
 			$config['dbPassword'] = $dbPassword;
 			$config['dbUsername'] = $dbUsername;
+			$config['dbPort'] = $dbPort;
 			$config['appURI'] = $appURI;
 			$config['host'] = $host;
 			$config['adminConfig'] = $adminConfig;
@@ -239,6 +255,8 @@
 		@include(configFileName());
 		if(!isset($dbServer)) return;
 
+		if(empty($dbPort)) $dbPort = ini_get('mysqli.default_port');
+
 		// check if appURI and host defined
 		if(isset($appURI) && isset($host)) return;
 
@@ -248,9 +266,23 @@
 			'dbUsername' => $dbUsername,
 			'dbPassword' => $dbPassword,
 			'dbDatabase' => $dbDatabase,
-			'appURI' => trim(dirname($_SERVER['SCRIPT_NAME']), '/'),
+			'dbPort' => $dbPort,
+			'appURI' => formatUri(dirname($_SERVER['SCRIPT_NAME'])),
 			'host' => (isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : $_SERVER['SERVER_NAME'] . ($_SERVER['SERVER_PORT'] == '80' || $_SERVER['SERVER_PORT'] == '443' ? '' : ":{$_SERVER['SERVER_PORT']}")),
 			'adminConfig' => $adminConfig
 		]);
+	}
+
+	#########################################################
+	function latest_jquery() {
+		$jquery_dir = __DIR__ . '/resources/jquery/js';
+
+		$files = scandir($jquery_dir, SCANDIR_SORT_DESCENDING);
+		foreach($files as $entry) {
+			if(preg_match('/^jquery[-0-9\.]*\.min\.js$/i', $entry))
+				return $entry;
+		}
+
+		return '';
 	}
 

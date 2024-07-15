@@ -37,7 +37,7 @@
 
 		// hook: member_activity
 		if(function_exists('member_activity')) {
-			$args=[];
+			$args = [];
 			member_activity($mi, 'profile', $args);
 		}
 
@@ -87,7 +87,7 @@
 
 		// hook: member_activity
 		if(function_exists('member_activity')) {
-			$args=[];
+			$args = [];
 			member_activity($mi, 'password', $args);
 		}
 
@@ -97,7 +97,7 @@
 	/* get profile info */
 	/* 
 		$mi already contains the profile info, as documented at: 
-		https://bigprof.com/appgini/help/working-with-generated-web-database-application/hooks/memberInfo
+		https://bigprof.com/appgini/help/advanced-topics/hooks/memberInfo-array/
 
 		custom field names are stored in $adminConfig['custom1'] to $adminConfig['custom4']
 	*/
@@ -228,7 +228,24 @@
 				</div>
 			</div>
 
-			<?php if($mi['username'] != $adminConfig['adminUsername']) { ?>
+			<?php if($mi['username'] == $adminConfig['adminUsername']) { ?>
+				<!-- change admin password from the admin area -->
+				<div class="panel panel-info">
+					<div class="panel-heading">
+						<h3 class="panel-title">
+							<i class="glyphicon glyphicon-asterisk"></i><i class="glyphicon glyphicon-asterisk"></i>
+							<a href="admin/pageSettings.php"><?php echo $Translation['Change your password']; ?></a>
+						</h3>
+					</div>
+					<div class="panel-body">
+						<a href="admin/pageSettings.php"><?php echo $Translation['admin settings']; ?></a>
+						<i class="glyphicon glyphicon-chevron-right rtl-mirror"></i>
+						<?php echo $Translation['Preconfigured users and groups']; ?>
+						<i class="glyphicon glyphicon-chevron-right rtl-mirror"></i>
+						<?php echo $Translation['admin password']; ?>
+					</div>
+				</div>
+			<?php } else { ?>
 				<!-- change password -->
 				<div class="panel panel-info">
 					<div class="panel-heading">

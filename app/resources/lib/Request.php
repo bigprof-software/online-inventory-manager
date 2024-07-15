@@ -57,6 +57,10 @@ class Request {
 		);
 	}
 
+	public static function datetime($var, $default = '') {
+		return parseMySQLDateTime(self::val($var), $default);
+	}
+
 	public static function multipleChoice($var, $default = '') {
 		return is_array($_REQUEST[$var]) ? implode(', ', $_REQUEST[$var]) : $default;
 	}
@@ -134,5 +138,18 @@ class Request {
 		$val = self::val($var, $default);
 		if(!in_array($val, $arrVals)) return $default;
 		return $val;
+	}
+
+	/**
+	 * Retrieve specified variable's value from HTTP REQUEST parameters as an array
+	 * 
+	 * @param      string  $var       The variable
+	 * @param      array   $default   The default value to use if $var doesn't exist, is empty, or is not an array
+	 * 
+	 * @return     array   The value as retrieved from the Request, or $default
+	 */
+	public static function array($var, $default = []) {
+		if(!isset($_REQUEST[$var]) || !is_array($_REQUEST[$var])) return $default;
+		return $_REQUEST[$var];
 	}
 }

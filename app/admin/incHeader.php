@@ -3,25 +3,18 @@
 	if(!defined('PREPEND_PATH')) define('PREPEND_PATH', '../');
 	$adminConfig = config('adminConfig');
 	?><!DOCTYPE html>
-<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
-<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
-<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+<html class="no-js">
 	<head>
 		<meta charset="<?php echo datalist_db_encoding; ?>">
-		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 		<meta name="description" content="">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<title><?php echo APP_TITLE . ' | ' . $Translation['admin area'] . (isset($GLOBALS['page_title']) ? html_attr(" | {$GLOBALS['page_title']}") : ''); ?></title>
 
 		<link id="browser_favicon" rel="shortcut icon" href="<?php echo PREPEND_PATH; ?>resources/table_icons/administrator.png">
 
-		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>resources/initializr/css/cosmo.css">
-		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>dynamic.css">
+		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>resources/initializr/css/paper.css">
+		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>dynamic.css?<?php echo filemtime( __DIR__ . '/../dynamic.css'); ?>">
 
-		<!--[if lt IE 9]>
-			<script src="<?php echo PREPEND_PATH; ?>resources/initializr/js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script>
-		<![endif]-->
 		<script src="<?php echo PREPEND_PATH; ?>resources/jquery/js/<?php echo latest_jquery(); ?>"></script>
 		<script>var $j = jQuery.noConflict(); var AppGini = AppGini || {};</script>
 		<script src="toolTips.js"></script>
@@ -162,7 +155,7 @@
 		</style>
 	</head>
 	<body>
-	<div class="admin-area container theme-cosmo theme-compact">
+	<div class="admin-area container theme-paper theme-compact">
 
 		<!-- top navbar -->
 		<nav class="navbar navbar-inverse navbar-fixed-top" role="navigation">
@@ -207,12 +200,12 @@
 							<?php } ?>
 							<li><a href="pageMail.php?sendToAll=1"><i class="glyphicon menu-item-icon text-info glyphicon-envelope"></i> <?php echo $Translation['mail all users']; ?></a></li>
 							<li><a href="pageServerStatus.php"><i class="glyphicon menu-item-icon text-info glyphicon-hdd"></i> <?php echo $Translation['server status']; ?></a></li>
-							<li class="divider"></li>
 							<li><a href="pageTranslation.php"><i class="glyphicon menu-item-icon text-info glyphicon-globe"></i> <?php echo $Translation['translation tool']; ?></a></li>
-							<li><a href="pageTransferOwnership.php"><i class="glyphicon menu-item-icon text-info glyphicon-transfer"></i> <?php echo $Translation['batch transfer']; ?></a></li>
+							<li class="divider"></li>
+							<li><a href="pageTransferOwnership.php"><i class="glyphicon menu-item-icon text-info glyphicon-transfer"></i> <?php echo $Translation['ownership batch transfer']; ?></a></li>
 							<li><a href="pageRebuildFields.php"><i class="glyphicon menu-item-icon text-info glyphicon-refresh"></i> <?php echo  $Translation['view or rebuild fields']; ?></a></li>
 							<li><a href="pageBackupRestore.php"><i class="glyphicon menu-item-icon text-info glyphicon-tasks"></i> <?php echo $Translation['database backups']; ?></a></li>
-							<li><a href="pageUploadCSV.php"><i class="glyphicon menu-item-icon text-info glyphicon-upload"></i> <?php echo $Translation['import CSV']; ?></a></li>
+							<li><a href="../import-csv.php"><i class="glyphicon menu-item-icon text-info glyphicon-upload"></i> <?php echo $Translation['import CSV']; ?></a></li>
 							<li><a href="pageQueryLogs.php"><i class="glyphicon menu-item-icon text-info glyphicon-book"></i> <?php echo $Translation['Query logs']; ?></a></li>
 							<li><a href="pageSQL.php"><i class="glyphicon menu-item-icon text-danger glyphicon-console"></i> <?php echo $Translation['Interactive SQL queries tool']; ?></a></li>
 							<li class="divider"></li>
@@ -222,21 +215,36 @@
 
 					<?php $plugins = get_plugins(); ?>
 
-					<?php if(count($plugins)) { ?>
-						<li class="dropdown">
-							<a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="glyphicon glyphicon-plus"></i> <?php echo $Translation["plugins"] ; ?> <b class="caret"></b></a>
-							<ul class="dropdown-menu">
-								<?php foreach($plugins as $plugin) { ?>
-									<?php
-										$plugin_icon = '';
-										if($plugin['glyphicon']) $plugin_icon = "<i class=\"glyphicon glyphicon-{$plugin['glyphicon']}\"></i> ";
-										if($plugin['icon']) $plugin_icon = "<img class=\"rspacer-md\" src=\"{$plugin['admin_path']}/{$plugin['icon']}\"> ";
-									?>
-									<li><a target="_blank" href="<?php echo $plugin['admin_path']; ?>"><?php echo $plugin_icon . $plugin['title']; ?></a></li>
-								<?php } ?>
-							</ul>
-						</li>
-					<?php } ?>
+					<li class="dropdown">
+						<a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="glyphicon glyphicon-plus"></i> <?php echo $Translation["plugins"] ; ?> <b class="caret"></b></a>
+						<ul class="dropdown-menu">
+							<li>
+								<a href="pageInstallPlugin.php">
+									<i class="glyphicon menu-item-icon text-info glyphicon-download-alt"></i>
+									<?php echo $Translation['Install a plugin']; ?>
+								</a>
+							</li>
+							<li>
+								<a target="_blank" href="https://bigprof.com/shop-discount-offers/">
+									<i class="glyphicon menu-item-icon text-info glyphicon-new-window"></i>
+									<?php echo $Translation['Explore more plugins']; ?>
+								</a>
+							</li>
+							<?php foreach($plugins as $plugin) { ?>
+								<?php
+									if(empty($pluginsSeparator)) {
+										echo '<li class="divider"></li>';
+										$pluginsSeparator = true;
+									}
+
+									$plugin_icon = '';
+									if($plugin['glyphicon']) $plugin_icon = "<i class=\"glyphicon glyphicon-{$plugin['glyphicon']}\"></i> ";
+									if($plugin['icon']) $plugin_icon = "<img class=\"rspacer-md\" src=\"{$plugin['admin_path']}/{$plugin['icon']}\"> ";
+								?>
+								<li><a target="_blank" href="<?php echo $plugin['admin_path']; ?>"><?php echo $plugin_icon . $plugin['title']; ?></a></li>
+							<?php } ?>
+						</ul>
+					</li>
 				</ul>
 
 				<div class="navbar-right">

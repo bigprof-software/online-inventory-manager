@@ -3,7 +3,7 @@
 	@define('SESSION_NAME', 'OIM');
 	@define('APP_TITLE', 'OIM');
 	@define('APP_DIR', __DIR__);
-	@define('APP_VERSION', '22.12');
+	@define('APP_VERSION', '24.16');
 	@define('maxSortBy', 4);
 	@define('empty_lookup_value', '{empty_value}');
 	@define('MULTIPLE_SUPER_ADMINS', false);
@@ -41,3 +41,5 @@
 	$GLOBALS['filter_operators'] = FILTER_OPERATORS;
 
 	@define('MULTI_TENANTS', false);
+	@define('FORCE_SETUP_CAPTCHA', true);
+	@define('HOMEPAGE_NAVMENUS', false);

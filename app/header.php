@@ -1,30 +1,23 @@
 <?php if(function_exists('set_headers')) { set_headers(); } ?>
 <?php if(!isset($Translation)) die('No direct access allowed!'); ?><!DOCTYPE html>
 <?php if(!defined('PREPEND_PATH')) define('PREPEND_PATH', ''); ?>
-<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
-<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
-<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+<html class="no-js">
 	<head>
 		<meta charset="<?php echo datalist_db_encoding; ?>">
-		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 		<meta name="description" content="">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 		<title><?php echo APP_TITLE . (isset($x->TableTitle) ? ' | ' . $x->TableTitle : ''); ?></title>
 		<link id="browser_favicon" rel="shortcut icon" href="<?php echo PREPEND_PATH; ?>resources/images/appgini-icon.png">
 
-		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>resources/initializr/css/cosmo.css">
+		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>resources/initializr/css/paper.css">
 		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>resources/lightbox/css/lightbox.css" media="screen">
 		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>resources/select2/select2.css" media="screen">
 		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>resources/timepicker/bootstrap-timepicker.min.css" media="screen">
 		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>resources/datepicker/css/datepicker.css" media="screen">
 		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>resources/bootstrap-datetimepicker/bootstrap-datetimepicker.css" media="screen">
-		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>dynamic.css">
+		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>dynamic.css?<?php echo filemtime( __DIR__ . '/dynamic.css'); ?>">
 
-		<!--[if lt IE 9]>
-			<script src="<?php echo PREPEND_PATH; ?>resources/initializr/js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script>
-		<![endif]-->
 		<script src="<?php echo PREPEND_PATH; ?>resources/jquery/js/<?php echo latest_jquery(); ?>"></script>
 		<script>var $j = jQuery.noConflict();</script>
 		<script src="<?php echo PREPEND_PATH; ?>resources/moment/moment-with-locales.min.js"></script>
@@ -41,41 +34,37 @@
 
 		<script>
 			<?php
-				// make a UTF8 version of $Translation
-				$translationUTF8 = $Translation;
-				if(datalist_db_encoding != 'UTF-8')
-					$translationUTF8 = array_map(function($str) {
-						return iconv(datalist_db_encoding, 'UTF-8', $str);
-					}, $translationUTF8);
-
-				$imgFolder = rtrim(config('adminConfig')['baseUploadPath'], '\\/') . '/';
+				$jsAppConfig = [
+					'imgFolder' => rtrim(config('adminConfig')['baseUploadPath'], '\\/') . '/',
+					'url' => application_url(),
+					'uri' => application_uri(),
+				];
 			?>
 			var AppGini = AppGini || {};
 
-			/* translation strings */
-			AppGini.Translate = {
-				_map: <?php echo json_encode($translationUTF8, JSON_PRETTY_PRINT); ?>,
-				_encoding: '<?php echo datalist_db_encoding; ?>'
-			}
-
-			AppGini.imgFolder = <?php echo json_encode($imgFolder, JSON_PARTIAL_OUTPUT_ON_ERROR); ?>;
+			AppGini.config = <?php echo json_encode($jsAppConfig, JSON_PARTIAL_OUTPUT_ON_ERROR); ?>
 		</script>
 
-		<script src="<?php echo PREPEND_PATH; ?>common.js"></script>
-		<script src="<?php echo PREPEND_PATH; ?>shortcuts.js"></script>
+		<?php if(!defined('APPGINI_SETUP')) { ?>
+			<script src="<?php echo PREPEND_PATH; ?>lang.js.php?<?php echo filemtime( __DIR__ . '/language.php'); ?>"></script>
+		<?php } ?>
+		<script src="<?php echo PREPEND_PATH; ?>common.js?<?php echo filemtime( __DIR__ . '/common.js'); ?>"></script>
+		<script src="<?php echo PREPEND_PATH; ?>shortcuts.js?<?php echo filemtime( __DIR__ . '/shortcuts.js'); ?>"></script>
 		<?php if(isset($x->TableName) && is_file(__DIR__ . "/hooks/{$x->TableName}-tv.js")) { ?>
 			<script src="<?php echo PREPEND_PATH; ?>hooks/<?php echo $x->TableName; ?>-tv.js"></script>
 		<?php } ?>
 
 	</head>
 	<body>
-		<div class="users-area container theme-cosmo theme-compact">
+		<div class="users-area container theme-paper theme-compact">
 			<?php if(function_exists('handle_maintenance')) echo handle_maintenance(true); ?>
 
 			<?php if(!Request::val('Embedded')) { ?>
 				<?php if(function_exists('htmlUserBar')) echo htmlUserBar(); ?>
 				<div style="min-height: 70px;" class="hidden-print top-margin-adjuster"></div>
 			<?php } ?>
+
+			<?php echo WindowMessages::getHtml(); ?>
 
 			<?php if(class_exists('Notification', false)) echo Notification::placeholder(); ?>
 
@@ -85,7 +74,7 @@
 			?>
 
 			<?php if(Request::val('Embedded')) { ?>
-				<div style="height: 2rem;"></div>
+				<div class="modal-top-spacer"></div>
 			<?php } ?>
 
 			<?php if(!defined('APPGINI_SETUP') && is_file(__DIR__ . '/hooks/header-extras.php')) { include(__DIR__ . '/hooks/header-extras.php'); } ?>

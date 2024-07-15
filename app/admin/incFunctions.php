@@ -7,6 +7,7 @@
 		getThumbnailSpecs($tableName, $fieldName, $view) -- returns an associative array specifying the width, height and identifier of the thumbnail file.
 		createThumbnail($img, $specs) -- $specs is an array as returned by getThumbnailSpecs(). Returns true on success, false on failure.
 		makeSafe($string)
+		formatUri($uri) -- convert \ to / and strip slashes from uri start/end
 		checkPermissionVal($pvn)
 		sql($statement, $o)
 		sqlValue($statement)
@@ -39,7 +40,7 @@
 		html_attr_tags_ok($str) -- same as html_attr, but allowing HTML tags
 		Notification() -- class for providing a standardized html notifications functionality
 		sendmail($mail) -- sends an email using PHPMailer as specified in the assoc array $mail( ['to', 'name', 'subject', 'message', 'debug'] ) and returns true on success or an error message on failure
-		safe_html($str, $noBr = false) -- sanitize HTML strings, and apply nl2br() to non-HTML ones (unless optional 2nd param is passed as true)
+		safe_html($str, $preserveNewLines = false) -- sanitize HTML strings, and convert new lines (\n) to breaks (<br>) for non-HTML ones (unless optional 2nd param is passed as true)
 		get_tables_info($skip_authentication = false) -- retrieves table properties as a 2D assoc array ['table_name' => ['prop1' => 'val', ..], ..]
 		getLoggedMemberID() -- returns memberID of logged member. If no login, returns anonymous memberID
 		getLoggedGroupID() -- returns groupID of logged member, or anonymous groupID
@@ -80,6 +81,7 @@
 		request_outside_admin_folder() -- returns true if currently executing script is outside admin folder, false otherwise.
 		breakpoint(__FILE__, __LINE__, $msg) -- if DEBUG_MODE enabled, logs a message to {app_dir}/breakpoint.csv, if $msg is array, it will be converted to str via json_encode
 		denyAccess($msg) -- Send a 403 Access Denied header, with an optional message then die
+		getUploadDir($dir) -- if dir is empty, returns upload dir configured in defaultLang.php, else returns $dir.
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	*/
 	########################################################################
@@ -151,13 +153,13 @@
 
 		foreach($all_tables as $tn => $ti) {
 			$arrPerm = getTablePermissions($tn);
-			if($arrPerm['access']) $accessible_tables[$tn] = $ti;
+			if(!empty($arrPerm['access'])) $accessible_tables[$tn] = $ti;
 		}
 
 		return $accessible_tables;
 	}
 	#########################################################
-	function getTableList($skip_authentication = false) {
+	function getTableList($skip_authentication = false, $include_internal_tables = false) {
 		$arrAccessTables = [];
 		$arrTables = [
 			/* 'table_name' => ['table caption', 'homepage description', 'icon', 'table group name'] */   
@@ -168,11 +170,35 @@
 			'items' => ['Items', 'Listing of all items entering the warehouse, its code, balance and category.', 'resources/table_icons/injection.png', 'Setup'],
 			'sections' => ['Storage sections', 'Lists all available storage locations.', 'resources/table_icons/color_swatch.png', 'Setup'],
 		];
-		if($skip_authentication || getLoggedAdmin()) return $arrTables;
+
+		if($skip_authentication || getLoggedAdmin()) {
+			if($include_internal_tables) {
+				// merge internal tables with user tables
+				$internalIcon = 'resources/images/appgini-icon.png';
+				$internalTables = [
+					'appgini_csv_import_jobs',
+					'appgini_query_log',
+					'membership_cache',
+					'membership_grouppermissions',
+					'membership_groups',
+					'membership_userpermissions',
+					'membership_userrecords',
+					'membership_users',
+					'membership_usersessions',
+				];
+
+				// format internal tables as 'tn' => ['tn', '', icon, ''] and merge with user tables
+				$arrTables = array_merge($arrTables, array_combine(
+					$internalTables, 
+					array_map(function($tn) use($internalIcon) { return [$tn, '', $internalIcon, '']; }, $internalTables)
+				));
+			}
+			return $arrTables;
+		}
 
 		foreach($arrTables as $tn => $tc) {
 			$arrPerm = getTablePermissions($tn);
-			if($arrPerm['access']) $arrAccessTables[$tn] = $tc;
+			if(!empty($arrPerm['access'])) $arrAccessTables[$tn] = $tc;
 		}
 
 		return $arrAccessTables;
@@ -182,117 +208,26 @@
 		return FALSE;
 	}
 	########################################################################
+	/**
+	 * Alias for `Thumbnail::create()`. Create a thumbnail of an image. The thumbnail is saved in the same directory as the original image, with the same name, suffixed with `$specs['identifier']`
+	 * @param string $img - path to image file
+	 * @param array $specs - array with thumbnail specs as returned by getThumbnailSpecs()
+	 * @return bool - true on success, false on failure
+	 */
 	function createThumbnail($img, $specs) {
-		$w = $specs['width'];
-		$h = $specs['height'];
-		$id = $specs['identifier'];
-		$path = dirname($img);
-
-		// image doesn't exist or inaccessible?
-		if(!$size = @getimagesize($img)) return false;
-
-		// calculate thumbnail size to maintain aspect ratio
-		$ow = $size[0]; // original image width
-		$oh = $size[1]; // original image height
-		$twbh = $h / $oh * $ow; // calculated thumbnail width based on given height
-		$thbw = $w / $ow * $oh; // calculated thumbnail height based on given width
-		if($w && $h) {
-			if($twbh > $w) $h = $thbw;
-			if($thbw > $h) $w = $twbh;
-		} elseif($w) {
-			$h = $thbw;
-		} elseif($h) {
-			$w = $twbh;
-		} else {
-			return false;
-		}
-
-		// dir not writeable?
-		if(!is_writable($path)) return false;
-
-		// GD lib not loaded?
-		if(!function_exists('gd_info')) return false;
-		$gd = gd_info();
-
-		// GD lib older than 2.0?
-		preg_match('/\d/', $gd['GD Version'], $gdm);
-		if($gdm[0] < 2) return false;
-
-		// get file extension
-		preg_match('/\.[a-zA-Z]{3,4}$/U', $img, $matches);
-		$ext = strtolower($matches[0]);
-
-		// check if supplied image is supported and specify actions based on file type
-		if($ext == '.gif') {
-			if(!$gd['GIF Create Support']) return false;
-			$thumbFunc = 'imagegif';
-		} elseif($ext == '.png') {
-			if(!$gd['PNG Support'])  return false;
-			$thumbFunc = 'imagepng';
-		} elseif($ext == '.jpg' || $ext == '.jpe' || $ext == '.jpeg') {
-			if(!$gd['JPG Support'] && !$gd['JPEG Support'])  return false;
-			$thumbFunc = 'imagejpeg';
-		} else {
-			return false;
-		}
-
-		// determine thumbnail file name
-		$ext = $matches[0];
-		$thumb = substr($img, 0, -5) . str_replace($ext, $id . $ext, substr($img, -5));
-
-		// if the original image smaller than thumb, then just copy it to thumb
-		if($h > $oh && $w > $ow) {
-			return (@copy($img, $thumb) ? true : false);
-		}
-
-		// get image data
-		if(!$imgData = imagecreatefromstring(implode('', file($img)))) return false;
-
-		// finally, create thumbnail
-		$thumbData = imagecreatetruecolor($w, $h);
-
-		//preserve transparency of png and gif images
-		$transIndex = null;
-		if($thumbFunc == 'imagepng') {
-			if(($clr = @imagecolorallocate($thumbData, 0, 0, 0)) != -1) {
-				@imagecolortransparent($thumbData, $clr);
-				@imagealphablending($thumbData, false);
-				@imagesavealpha($thumbData, true);
-			}
-		} elseif($thumbFunc == 'imagegif') {
-			@imagealphablending($thumbData, false);
-			$transIndex = imagecolortransparent($imgData);
-			if($transIndex >= 0) {
-				$transClr = imagecolorsforindex($imgData, $transIndex);
-				$transIndex = imagecolorallocatealpha($thumbData, $transClr['red'], $transClr['green'], $transClr['blue'], 127);
-				imagefill($thumbData, 0, 0, $transIndex);
-			}
-		}
-
-		// resize original image into thumbnail
-		if(!imagecopyresampled($thumbData, $imgData, 0, 0 , 0, 0, $w, $h, $ow, $oh)) return false;
-		unset($imgData);
-
-		// gif transparency
-		if($thumbFunc == 'imagegif' && $transIndex >= 0) {
-			imagecolortransparent($thumbData, $transIndex);
-			for($y = 0; $y < $h; ++$y)
-				for($x = 0; $x < $w; ++$x)
-					if(((imagecolorat($thumbData, $x, $y) >> 24) & 0x7F) >= 100) imagesetpixel($thumbData, $x, $y, $transIndex);
-			imagetruecolortopalette($thumbData, true, 255);
-			imagesavealpha($thumbData, false);
-		}
-
-		if(!$thumbFunc($thumbData, $thumb)) return false;
-		unset($thumbData);
-
-		return true;
+		return Thumbnail::create($img, $specs);
+	}
+	########################################################################
+	function formatUri($uri) {
+		$uri = str_replace('\\', '/', $uri);
+		return trim($uri, '/');
 	}
 	########################################################################
 	function makeSafe($string, $is_gpc = true) {
 		static $cached = []; /* str => escaped_str */
 
 		if(!strlen($string)) return '';
+		if(is_numeric($string)) return db_escape($string); // don't cache numbers to avoid cases like '3.5' being equivelant to '3' in array indexes
 
 		if(!db_link()) sql("SELECT 1+1", $eo);
 
@@ -345,8 +280,11 @@
 		$dbUsername = config('dbUsername');
 		$dbPassword = config('dbPassword');
 		$dbDatabase = config('dbDatabase');
+		$dbPort = config('dbPort');
 
 		if($connected) return $db_link;
+
+		global $Translation;
 
 		/****** Check that MySQL module is enabled ******/
 		if(!extension_loaded('mysql') && !extension_loaded('mysqli')) {
@@ -357,11 +295,11 @@
 		}
 
 		/****** Connect to MySQL ******/
-		if(!($db_link = @db_connect($dbServer, $dbUsername, $dbPassword))) {
+		if(!($db_link = @db_connect($dbServer, $dbUsername, $dbPassword, NULL, $dbPort))) {
 			$o['error'] = db_error($db_link, true);
 			if(!empty($o['silentErrors'])) return false;
 
-			dieErrorPage($o['error']);
+			dieErrorPage($o['error'] ? $o['error'] : $Translation['no db connection']);
 		}
 
 		/****** Select DB ********/
@@ -369,7 +307,7 @@
 			$o['error'] = db_error($db_link);
 			if(!empty($o['silentErrors'])) return false;
 
-			dieErrorPage($o['error']);
+			dieErrorPage(str_replace('<DBName>', '****', $Translation['no db name']));
 		}
 
 		$connected = true;
@@ -411,7 +349,7 @@
 					$o['error'] = htmlspecialchars($o['error']) . 
 						"<pre class=\"ltr\">{$Translation['query:']}\n" . htmlspecialchars($statement) . '</pre>' .
 						"<p><i class=\"text-right\">{$Translation['admin-only info']}</i></p>" .
-						"<p>{$Translation['try rebuild fields']}</p>";
+						"<p><a href=\"" . application_url('admin/pageRebuildFields.php') . "\">{$Translation['try rebuild fields']}</a></p>";
 
 				if(!empty($o['silentErrors'])) return false;
 
@@ -474,27 +412,7 @@
 		static $created = false;
 		if($created) return true;
 
-		$o = [
-			'silentErrors' => true,
-			'noSlowQueryLog' => true,
-			'noErrorQueryLog' => true
-		];
-
-		sql("CREATE TABLE IF NOT EXISTS `appgini_query_log` (
-			`datetime` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			`statement` LONGTEXT,
-			`duration` DECIMAL(10,2) UNSIGNED DEFAULT 0.0,
-			`error` TEXT,
-			`memberID` VARCHAR(200),
-			`uri` VARCHAR(200)
-		) CHARSET " . mysql_charset, $o);
-
-		// check if table created
-		//$o2 = $o;
-		//$o2['error'] = '';
-		//sql("SELECT COUNT(1) FROM 'appgini_query_log'", $o2);
-
-		//$created = empty($o2['error']);
+		createTableIfNotExists('appgini_query_log');
 
 		$created = true;
 		return $created;
@@ -591,7 +509,7 @@
 		$payload = $data;
 		$payload['insert_x'] = 1;
 
-		$url = (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . config('host') . '/' . application_uri("{$table}_view.php");
+		$url = application_url("{$table}_view.php");
 		$token = jwt_token();
 		$options = [
 			CURLOPT_URL => $url,
@@ -693,6 +611,10 @@
 	########################################################################
 	function redirect($url, $absolute = false) {
 		$fullURL = ($absolute ? $url : application_url($url));
+
+		// append browser window id to url (check if it should be preceded by ? or &)
+		$fullURL .= (strpos($fullURL, '?') === false ? '?' : '&') . WindowMessages::windowIdQuery();
+
 		if(!headers_sent()) header("Location: {$fullURL}");
 
 		echo "<META HTTP-EQUIV=\"Refresh\" CONTENT=\"0;url={$fullURL}\">";
@@ -808,11 +730,7 @@
 	}
 	########################################################################
 	function setupMembership() {
-		// run once per session, but force proceeding if not all mem tables created
-		$res = sql("show tables like 'membership_%'", $eo);
-		$num_mem_tables = db_num_rows($res);
-		$mem_update_fn = membership_table_functions();
-		if(isset($_SESSION['setupMembership']) && $num_mem_tables >= count($mem_update_fn)) return;
+		if(empty($_SESSION) || empty($_SESSION['memberID'])) return;
 
 		/* abort if current page is one of the following exceptions */
 		if(in_array(basename($_SERVER['PHP_SELF']), [
@@ -828,7 +746,18 @@
 			'pageRebuildFields.php', 
 			'pageSettings.php',
 			'ajax_check_login.php',
+			'parent-children.php',
 		])) return;
+
+		// abort if current page is ajax
+		if(is_ajax()) return;
+		if(strpos(basename($_SERVER['PHP_SELF']), 'ajax-') === 0) return;
+
+		// run once per session, but force proceeding if not all mem tables created
+		$res = sql("show tables like 'membership_%'", $eo);
+		$num_mem_tables = db_num_rows($res);
+		$mem_update_fn = membership_table_functions();
+		if(isset($_SESSION['setupMembership']) && $num_mem_tables >= count($mem_update_fn)) return;
 
 		// call each update_membership function
 		foreach($mem_update_fn as $mem_fn) {
@@ -940,8 +869,9 @@
 		return $keys;
 	}
 	########################################################################
-	function get_table_fields($tn = null) {
-		static $schema = null;
+	function get_table_fields($tn = null, $include_internal_tables = false) {
+		static $schema = null, $internalTables = null;
+
 		if($schema === null) {
 			/* application schema as created in AppGini */
 			$schema = [
@@ -1161,158 +1091,297 @@
 					],
 				],
 			];
+
+			$internalTablesSimple = [
+				'appgini_csv_import_jobs' => [
+					'id' => "VARCHAR(40) NOT NULL PRIMARY KEY",
+					'memberID' => "VARCHAR(100) NOT NULL",
+					'config' => "TEXT",
+					'insert_ts' => "INT",
+					'last_update_ts' => "INT",
+					'total' => "INT DEFAULT '99999999'",
+					'done' => "INT DEFAULT '0'",
+				],
+				'appgini_query_log' => [
+					'datetime' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+					'statement' => "LONGTEXT",
+					'duration' => "DECIMAL(10,2) UNSIGNED DEFAULT '0.00'",
+					'error' => "TEXT",
+					'memberID' => "VARCHAR(200)",
+					'uri' => "VARCHAR(200)",
+				],
+				'membership_cache' => [
+					'request' => "VARCHAR(100) NOT NULL PRIMARY KEY",
+					'request_ts' => "INT",
+					'response' => "LONGTEXT",
+				],
+				'membership_grouppermissions' => [
+					'permissionID' => "INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT",
+					'groupID' => "INT UNSIGNED",
+					'tableName' => "VARCHAR(100)",
+					'allowInsert' => "TINYINT NOT NULL DEFAULT '0'",
+					'allowView' => "TINYINT NOT NULL DEFAULT '0'",
+					'allowEdit' => "TINYINT NOT NULL DEFAULT '0'",
+					'allowDelete' => "TINYINT NOT NULL DEFAULT '0'",
+				],
+				'membership_groups' => [
+					'groupID' => "INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT",
+					'name' => "VARCHAR(100) NOT NULL UNIQUE",
+					'description' => "TEXT",
+					'allowSignup' => "TINYINT",
+					'needsApproval' => "TINYINT",
+					'allowCSVImport' => "TINYINT NOT NULL DEFAULT '0'",
+				],
+				'membership_userpermissions' => [
+					'permissionID' => "INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT",
+					'memberID' => "VARCHAR(100) NOT NULL",
+					'tableName' => "VARCHAR(100)",
+					'allowInsert' => "TINYINT NOT NULL DEFAULT '0'",
+					'allowView' => "TINYINT NOT NULL DEFAULT '0'",
+					'allowEdit' => "TINYINT NOT NULL DEFAULT '0'",
+					'allowDelete' => "TINYINT NOT NULL DEFAULT '0'",
+				],
+				'membership_userrecords' => [
+					'recID' => "BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT",
+					'tableName' => "VARCHAR(100)",
+					'pkValue' => "VARCHAR(255)",
+					'memberID' => "VARCHAR(100)",
+					'dateAdded' => "BIGINT UNSIGNED",
+					'dateUpdated' => "BIGINT UNSIGNED",
+					'groupID' => "INT UNSIGNED",
+				],
+				'membership_users' => [
+					'memberID' => "VARCHAR(100) NOT NULL PRIMARY KEY",
+					'passMD5' => "VARCHAR(255)",
+					'email' => "VARCHAR(100)",
+					'signupDate' => "DATE",
+					'groupID' => "INT UNSIGNED",
+					'isBanned' => "TINYINT",
+					'isApproved' => "TINYINT",
+					'custom1' => "TEXT",
+					'custom2' => "TEXT",
+					'custom3' => "TEXT",
+					'custom4' => "TEXT",
+					'comments' => "TEXT",
+					'pass_reset_key' => "VARCHAR(100)",
+					'pass_reset_expiry' => "INT UNSIGNED",
+					'flags' => "TEXT",
+					'allowCSVImport' => "TINYINT NOT NULL DEFAULT '0'",
+					'data' => "LONGTEXT",
+				]
+			];
+
+			$internalTables = [];
+			// add 'appgini' and 'info' keys to internal tables fields
+			foreach($internalTablesSimple as $tableName => $fields) {
+				$internalTables[$tableName] = [];
+				foreach($fields as $fn => $fd) {
+					$internalTables[$tableName][$fn] = ['appgini' => $fd, 'info' => ['caption' => $fn, 'description' => '']];
+				}
+			}
 		}
 
-		if($tn === null) return $schema;
+		if($tn === null && !$include_internal_tables) return $schema;
 
-		return isset($schema[$tn]) ? $schema[$tn] : [];
+		if($tn === null) return array_merge($schema, $internalTables);
+
+		return $schema[$tn] ?? $internalTables[$tn] ?? [];
 	}
+	########################################################################
+	function updateField($tn, $fn, $dataType, $notNull = false, $default = null, $extra = null) {
+		$sqlNull = $notNull ? 'NOT NULL' : 'NULL';
+		$sqlDefault = $default === null ? '' : "DEFAULT '" . makeSafe($default) . "'";
+		$sqlExtra = $extra === null ? '' : $extra;
+
+		// get current field definition
+		$col = false;
+		$eo = ['silentErrors' => true];
+		$res = sql("SHOW COLUMNS FROM `{$tn}` LIKE '{$fn}'", $eo);
+		if($res) $col = db_fetch_assoc($res);
+
+		// if field does not exist, create it
+		if(!$col) {
+			sql("ALTER TABLE `{$tn}` ADD COLUMN `{$fn}` {$dataType} {$sqlNull} {$sqlDefault} {$sqlExtra}", $eo);
+			return;
+		}
+
+		// if field exists, alter it if needed
+		if(
+			strtolower($col['Type']) != strtolower($dataType) ||
+			(strtolower($col['Null']) == 'yes' && $notNull) ||
+			(strtolower($col['Null']) == 'no' && !$notNull) ||
+			(strtolower($col['Default']) != strtolower($default)) ||
+			(strtolower($col['Extra']) != strtolower($extra))
+		) {
+			sql("ALTER TABLE `{$tn}` CHANGE COLUMN `{$fn}` `{$fn}` {$dataType} {$sqlNull} {$sqlDefault} {$sqlExtra}", $eo);
+		}
+	}
+
+	########################################################################
+	function addIndex($tn, $fields, $unique = false) {
+		// if $fields is a string, convert it to an array
+		if(!is_array($fields)) $fields = [$fields];
+
+		// reshape fields so that key is field name and value is index length or null for full length
+		$fields2 = [];
+		foreach($fields as $k => $v) {
+			if(is_numeric($k)) {
+				$fields2[$v] = null; // $v is field name and index length is full length
+				continue;
+			}
+
+			$fields2[$k] = $v; // $k is field name and $v is index length
+		}
+		unset($fields); $fields = $fields2;
+
+		// prepare index name and sql
+		$index_name = implode('_', array_keys($fields));
+		$sql = "ALTER TABLE `{$tn}` ADD " . ($unique ? 'UNIQUE ' : '') . "INDEX `{$index_name}` (";
+		foreach($fields as $field => $length)
+			$sql .= "`$field`" . ($length === null ? '' : "($length)") . ',';
+		$sql = rtrim($sql, ',') . ')';
+
+		// get current indexes
+		$eo = ['silentErrors' => true];
+		$res = sql("SHOW INDEXES FROM `{$tn}`", $eo);
+		$indexes = [];
+		while($row = db_fetch_assoc($res))
+			$indexes[$row['Key_name']][$row['Seq_in_index']] = $row;
+
+		// if index does not exist, create it
+		if(!isset($indexes[$index_name])) {
+			sql($sql, $eo);
+			return;
+		}
+
+		// if index exists, alter it if needed
+		$index = $indexes[$index_name];
+		$index_changed = false;
+		$index_fields = [];
+		foreach($index as $seq_in_index => $info)
+			$index_fields[$seq_in_index] = $info['Column_name'];
+
+		if(count($index_fields) != count($fields)) $index_changed = true;
+		foreach($fields as $field => $length) {
+			// check if field exists in index
+			$seq_in_index = array_search($field, $index_fields);
+			if($seq_in_index === false) {
+				$index_changed = true;
+				break;
+			}
+
+			// check if field length is different
+			if($length !== null && $length != $index[$seq_in_index]['Sub_part']) {
+				$index_changed = true;
+				break;
+			}
+
+			// check index uniqueness
+			if(($unique && $index[$seq_in_index]['Non_unique'] == 1) || (!$unique && $index[$seq_in_index]['Non_unique'] == 0)) {
+				$index_changed = true;
+				break;
+			}
+		}
+		if(!$index_changed) return;
+
+		sql("ALTER TABLE `{$tn}` DROP INDEX `{$index_name}`", $eo);
+		sql($sql, $eo);
+	}
+
+	########################################################################
+	function createTableIfNotExists($tn, $return_schema_without_executing = false) {
+		$schema = get_table_fields($tn);
+		if(!$schema) return false;
+
+		$create_sql = "CREATE TABLE IF NOT EXISTS `{$tn}` (";
+		foreach($schema as $fn => $fd) {
+			$create_sql .= "\n  `{$fn}` {$fd['appgini']}, ";
+		}
+		$create_sql = rtrim($create_sql, ', ') . "\n) CHARSET " . mysql_charset;
+		$create_sql = trim($create_sql);
+
+		if($return_schema_without_executing) return $create_sql;
+
+		$eo = ['silentErrors' => true, 'noErrorQueryLog' => true];
+		sql($create_sql, $eo);
+	}
+
 	########################################################################
 	function update_membership_groups() {
 		$tn = 'membership_groups';
-		$eo = ['silentErrors' => true, 'noErrorQueryLog' => true];
+		createTableIfNotExists($tn);
 
-		sql(
-			"CREATE TABLE IF NOT EXISTS `{$tn}` (
-				`groupID` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-				`name` varchar(100) NOT NULL,
-				`description` TEXT,
-				`allowSignup` TINYINT,
-				`needsApproval` TINYINT,
-				`allowCSVImport` TINYINT NOT NULL DEFAULT '0',
-				PRIMARY KEY (`groupID`)
-			) CHARSET " . mysql_charset,
-		$eo);
-
-		sql("ALTER TABLE `{$tn}` CHANGE COLUMN `name` `name` VARCHAR(100) NOT NULL", $eo);
-		sql("ALTER TABLE `{$tn}` ADD UNIQUE INDEX `name` (`name`)", $eo);
-		sql("ALTER TABLE `{$tn}` ADD COLUMN `allowCSVImport` TINYINT NOT NULL DEFAULT '0'", $eo);
+		updateField($tn, 'name', 'VARCHAR(100)', true);
+		addIndex($tn, 'name', true);
+		updateField($tn, 'allowCSVImport', 'TINYINT', true, '0');
 	}
 	########################################################################
 	function update_membership_users() {
 		$tn = 'membership_users';
-		$eo = ['silentErrors' => true, 'noErrorQueryLog' => true];
+		createTableIfNotExists($tn);
 
-		sql(
-			"CREATE TABLE IF NOT EXISTS `{$tn}` (
-				`memberID` VARCHAR(100) NOT NULL, 
-				`passMD5` VARCHAR(255), 
-				`email` VARCHAR(100), 
-				`signupDate` DATE, 
-				`groupID` INT UNSIGNED, 
-				`isBanned` TINYINT, 
-				`isApproved` TINYINT, 
-				`custom1` TEXT, 
-				`custom2` TEXT, 
-				`custom3` TEXT, 
-				`custom4` TEXT, 
-				`comments` TEXT, 
-				`pass_reset_key` VARCHAR(100),
-				`pass_reset_expiry` INT UNSIGNED,
-				`flags` TEXT,
-				`allowCSVImport` TINYINT NOT NULL DEFAULT '0', 
-				`data` LONGTEXT,
-				PRIMARY KEY (`memberID`),
-				INDEX `groupID` (`groupID`)
-			) CHARSET " . mysql_charset,
-		$eo);
-
-		sql("ALTER TABLE `{$tn}` ADD COLUMN `pass_reset_key` VARCHAR(100)", $eo);
-		sql("ALTER TABLE `{$tn}` ADD COLUMN `pass_reset_expiry` INT UNSIGNED", $eo);
-		sql("ALTER TABLE `{$tn}` CHANGE COLUMN `passMD5` `passMD5` VARCHAR(255)", $eo);
-		sql("ALTER TABLE `{$tn}` CHANGE COLUMN `memberID` `memberID` VARCHAR(100) NOT NULL", $eo);
-		sql("ALTER TABLE `{$tn}` ADD INDEX `groupID` (`groupID`)", $eo);
-		sql("ALTER TABLE `{$tn}` ADD COLUMN `flags` TEXT", $eo);
-		sql("ALTER TABLE `{$tn}` ADD COLUMN `allowCSVImport` TINYINT NOT NULL DEFAULT '0'", $eo);
-		sql("ALTER TABLE `{$tn}` ADD COLUMN `data` LONGTEXT", $eo);
+		updateField($tn, 'pass_reset_key', 'VARCHAR(100)');
+		updateField($tn, 'pass_reset_expiry', 'INT UNSIGNED');
+		updateField($tn, 'passMD5', 'VARCHAR(255)');
+		updateField($tn, 'memberID', 'VARCHAR(100)', true);
+		addIndex($tn, 'groupID');
+		updateField($tn, 'flags', 'TEXT');
+		updateField($tn, 'allowCSVImport', 'TINYINT', true, '0');
+		updateField($tn, 'data', 'LONGTEXT');
 	}
 	########################################################################
 	function update_membership_userrecords() {
 		$tn = 'membership_userrecords';
-		$eo = ['silentErrors' => true, 'noErrorQueryLog' => true];
+		createTableIfNotExists($tn);
 
-		sql(
-			"CREATE TABLE IF NOT EXISTS `{$tn}` (
-				`recID` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, 
-				`tableName` VARCHAR(100), 
-				`pkValue` VARCHAR(255), 
-				`memberID` VARCHAR(100), 
-				`dateAdded` BIGINT UNSIGNED, 
-				`dateUpdated` BIGINT UNSIGNED, 
-				`groupID` INT UNSIGNED, 
-				PRIMARY KEY (`recID`),
-				UNIQUE INDEX `tableName_pkValue` (`tableName`, `pkValue`(150)),
-				INDEX `pkValue` (`pkValue`),
-				INDEX `tableName` (`tableName`),
-				INDEX `memberID` (`memberID`),
-				INDEX `groupID` (`groupID`)
-			) CHARSET " . mysql_charset,
-		$eo);
-
-		sql("ALTER TABLE `{$tn}` ADD UNIQUE INDEX `tableName_pkValue` (`tableName`, `pkValue`(150))", $eo);
-		sql("ALTER TABLE `{$tn}` ADD INDEX `pkValue` (`pkValue`)", $eo);
-		sql("ALTER TABLE `{$tn}` ADD INDEX `tableName` (`tableName`)", $eo);
-		sql("ALTER TABLE `{$tn}` ADD INDEX `memberID` (`memberID`)", $eo);
-		sql("ALTER TABLE `{$tn}` ADD INDEX `groupID` (`groupID`)", $eo);
-		sql("ALTER TABLE `{$tn}` CHANGE COLUMN `memberID` `memberID` VARCHAR(100)", $eo);
+		addIndex($tn, ['tableName' => null, 'pkValue' => 100], true);
+		addIndex($tn, 'pkValue');
+		addIndex($tn, 'tableName');
+		addIndex($tn, 'memberID');
+		addIndex($tn, 'groupID');
+		updateField($tn, 'memberID', 'VARCHAR(100)');
 	}
 	########################################################################
 	function update_membership_grouppermissions() {
 		$tn = 'membership_grouppermissions';
-		$eo = ['silentErrors' => true, 'noErrorQueryLog' => true];
+		createTableIfNotExists($tn);
 
-		sql(
-			"CREATE TABLE IF NOT EXISTS `{$tn}` (
-				`permissionID` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-				`groupID` INT UNSIGNED,
-				`tableName` VARCHAR(100),
-				`allowInsert` TINYINT NOT NULL DEFAULT '0',
-				`allowView` TINYINT NOT NULL DEFAULT '0',
-				`allowEdit` TINYINT NOT NULL DEFAULT '0',
-				`allowDelete` TINYINT NOT NULL DEFAULT '0',
-				PRIMARY KEY (`permissionID`)
-			) CHARSET " . mysql_charset,
-		$eo);
-
-		sql("ALTER TABLE `{$tn}` ADD UNIQUE INDEX `groupID_tableName` (`groupID`, `tableName`)", $eo);
+		addIndex($tn, ['groupID', 'tableName'], true);
 	}
 	########################################################################
 	function update_membership_userpermissions() {
 		$tn = 'membership_userpermissions';
-		$eo = ['silentErrors' => true, 'noErrorQueryLog' => true];
+		createTableIfNotExists($tn);
 
-		sql(
-			"CREATE TABLE IF NOT EXISTS `{$tn}` (
-				`permissionID` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-				`memberID` VARCHAR(100) NOT NULL,
-				`tableName` VARCHAR(100),
-				`allowInsert` TINYINT NOT NULL DEFAULT '0',
-				`allowView` TINYINT NOT NULL DEFAULT '0',
-				`allowEdit` TINYINT NOT NULL DEFAULT '0',
-				`allowDelete` TINYINT NOT NULL DEFAULT '0',
-				PRIMARY KEY (`permissionID`)
-			) CHARSET " . mysql_charset,
-		$eo);
-
-		sql("ALTER TABLE `{$tn}` CHANGE COLUMN `memberID` `memberID` VARCHAR(100) NOT NULL", $eo);
-		sql("ALTER TABLE `{$tn}` ADD UNIQUE INDEX `memberID_tableName` (`memberID`, `tableName`)", $eo);
+		updateField($tn, 'memberID', 'VARCHAR(100)', true);
+		addIndex($tn, ['memberID', 'tableName'], true);
 	}
 	########################################################################
 	function update_membership_usersessions() {
 		$tn = 'membership_usersessions';
+
+		// not using createTableIfNotExists() here because we need to add a composite unique index,
+		// which is not supported by that function yet
 		$eo = ['silentErrors' => true, 'noErrorQueryLog' => true];
 
 		sql(
-			"CREATE TABLE IF NOT EXISTS `membership_usersessions` (
+			"CREATE TABLE IF NOT EXISTS `$tn` (
 				`memberID` VARCHAR(100) NOT NULL,
 				`token` VARCHAR(100) NOT NULL,
 				`agent` VARCHAR(100) NOT NULL,
 				`expiry_ts` INT(10) UNSIGNED NOT NULL,
-				UNIQUE INDEX `memberID_token_agent` (`memberID`, `token`, `agent`),
+				UNIQUE INDEX `memberID_token_agent` (`memberID`, `token`(50), `agent`(50)),
 				INDEX `memberID` (`memberID`),
 				INDEX `expiry_ts` (`expiry_ts`)
 			) CHARSET " . mysql_charset,
 		$eo);
+	}
+	########################################################################
+	function update_membership_cache() {
+		$tn = 'membership_cache';
+		createTableIfNotExists($tn);
+
+		updateField($tn, 'response', 'LONGTEXT');
 	}
 	########################################################################
 	function thisOr($this_val, $or = '&nbsp;') {
@@ -1433,8 +1502,15 @@
 	########################################################################
 	function application_url($page = '', $s = false) {
 		if($s === false) $s = $_SERVER;
-		$ssl = (!empty($s['HTTPS']) && strtolower($s['HTTPS']) != 'off');
+
+		$ssl = (
+			(!empty($s['HTTPS']) && strtolower($s['HTTPS']) != 'off')
+			// detect reverse proxy SSL
+			|| (!empty($s['HTTP_X_FORWARDED_PROTO']) && strtolower($s['HTTP_X_FORWARDED_PROTO']) == 'https')
+			|| (!empty($s['HTTP_X_FORWARDED_SSL']) && strtolower($s['HTTP_X_FORWARDED_SSL']) == 'on')
+		);
 		$http = ($ssl ? 'https:' : 'http:');
+
 		$port = $s['SERVER_PORT'];
 		$port = ($port == '80' || $port == '443' || !$port) ? '' : ':' . $port;
 		// HTTP_HOST already includes server port if not standard, but SERVER_NAME doesn't
@@ -1751,12 +1827,7 @@
 		$cfg = config('adminConfig');
 		$smtp = ($cfg['mail_function'] == 'smtp');
 
-		if(!class_exists('PHPMailer', false)) {
-			include_once(__DIR__ . '/../resources/PHPMailer/class.phpmailer.php');
-			if($smtp) include_once(__DIR__ . '/../resources/PHPMailer/class.smtp.php');
-		}
-
-		$pm = new PHPMailer;
+		$pm = new PHPMailer\PHPMailer\PHPMailer;
 		$pm->CharSet = datalist_db_encoding;
 
 		if($smtp) {
@@ -1801,15 +1872,15 @@
 		return true;
 	}
 	#########################################################
-	function safe_html($str, $noBr = false) {
+	function safe_html($str, $preserveNewLines = false) {
 		/* if $str has no HTML tags, apply nl2br */
-		if($str == strip_tags($str)) return $noBr ? $str : nl2br($str);
+		if($str == strip_tags($str)) return $preserveNewLines ? $str : nl2br($str);
 
 		$hc = new CI_Input(datalist_db_encoding);
 		$str = $hc->xss_clean(bgStyleToClass($str));
 
-		// sandbox iframes
-		$str = preg_replace('/(<|&lt;)iframe(.*?)(>|&gt;)/i', '$1iframe sandbox $2$3', $str);
+		// sandbox iframes if they aren't already
+		$str = preg_replace('/(<|&lt;)iframe(\s+sandbox)*(.*?)(>|&gt;)/i', '$1iframe sandbox$3$4', $str);
 
 		return $str;
 	}
@@ -1847,13 +1918,19 @@
 	 *  @brief Prepares data for a SET or WHERE clause, to be used in an INSERT/UPDATE query
 	 *  
 	 *  @param [in] $set_array Assoc array of field names => values
-	 *  @param [in] $glue optional glue. Set to ' AND ' or ' OR ' if preparing a WHERE clause
-	 *  @return SET string
+	 *  @param [in] $glue optional glue. Set to ' AND ' or ' OR ' if preparing a WHERE clause, or to ',' (default) for a SET clause
+	 *  @return string containing the prepared SET or WHERE clause
 	 */
 	function prepare_sql_set($set_array, $glue = ', ') {
 		$fnvs = [];
 		foreach($set_array as $fn => $fv) {
-			if($fv === null) { $fnvs[] = "{$fn}=NULL"; continue; }
+			if($fv === null && trim($glue) == ',') { $fnvs[] = "{$fn}=NULL"; continue; }
+			if($fv === null) { $fnvs[] = "{$fn} IS NULL"; continue; }
+
+			if(is_array($fv) && trim($glue) != ',') {
+				$fnvs[] = "{$fn} IN ('" . implode("','", array_map('makeSafe', $fv)) . "')";
+				continue;
+			}
 
 			$sfv = makeSafe($fv);
 			$fnvs[] = "{$fn}='{$sfv}'";
@@ -2153,7 +2230,7 @@
 	 *  @brief converts string from utf8 to app-configured encoding
 	 *  
 	 *  @param [in] $str string to convert from utf8
-	 *  @return utf8-decoded string
+	 *  @return string utf8-decoded string
 	 *  
 	 *  @details if the constant 'datalist_db_encoding' is not defined, original string is returned
 	 */
@@ -2218,18 +2295,12 @@
 		 *             field => query, ...
 		 */
 		return [
-			'transactions' => [
-			],
-			'batches' => [
-			],
-			'suppliers' => [
-			],
-			'categories' => [
-			],
-			'items' => [
-			],
-			'sections' => [
-			],
+			'transactions' => [],
+			'batches' => [],
+			'suppliers' => [],
+			'categories' => [],
+			'items' => [],
+			'sections' => [],
 		];
 	}
 	#########################################################
@@ -2270,18 +2341,6 @@
 		}
 
 		return $caluclations_made;
-	}
-	#########################################################
-	function latest_jquery() {
-		$jquery_dir = __DIR__ . '/../resources/jquery/js';
-
-		$files = scandir($jquery_dir, SCANDIR_SORT_DESCENDING);
-		foreach($files as $entry) {
-			if(preg_match('/^jquery[-0-9\.]*\.min\.js$/i', $entry))
-				return $entry;
-		}
-
-		return '';
 	}
 	#########################################################
 	function existing_value($tn, $fn, $id, $cache = true) {
@@ -2470,13 +2529,19 @@
 		$template = str_replace(['<MaxSize>', '<FileTypes>'], ['{MaxSize}', '{FileTypes}'], $template);
 		$template = str_replace('<%%BASE_UPLOAD_PATH%%>', getUploadDir(''), $template);
 
+		// strip lines that only contain HTML comments
+		$template = preg_replace('/^\s*<!--.*?-->\s*$/m', '', $template);
+
+		// strip lines that only contain whitespace
+		$template = preg_replace('/^\s*$/m', '', $template);
+
 		return $template;
 	}
 	#########################################################
 	function getUploadDir($dir = '') {
 		if($dir == '') $dir = config('adminConfig')['baseUploadPath'];
 
-		return rtrim($dir, '\\/') . '/';
+		return rtrim($dir, '\\/') . DIRECTORY_SEPARATOR;
 	}
 	#########################################################
 	function bgStyleToClass($html) {
@@ -2573,3 +2638,156 @@
 		@header($_SERVER['SERVER_PROTOCOL'] . ' 403 Access Denied');
 		die($msg);
 	}
+	#########################################################
+	function is_xhr() {
+		return (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
+	}
+
+	/**
+	 * @brief send a json response to the client and terminate
+	 * 
+	 * @param [in] $dataOrMsg mixed, either an array of data to send, or a string error message
+	 * @param [in] $isError bool, true if $dataOrMsg is an error message, false if it's data
+	 * @param [in] $errorStatusCode int, HTTP status code to send
+	 * 
+	 * @details if $isError is true, $dataOrMsg is assumed to be an error message and $errorStatusCode is sent as the HTTP status code
+	 *     example error response: `{"status":"error","message":"Access denied"}`
+	 *     if $isError is false, $dataOrMsg is assumed to be data and $errorStatusCode is ignored
+	 *     example success response: `{"status":"success","data":{"id":1,"name":"John Doe"}}`
+	 */
+	function json_response($dataOrMsg, $isError = false, $errorStatusCode = 400) {
+		@header('Content-type: application/json');
+
+		if($isError) {
+			@header($_SERVER['SERVER_PROTOCOL'] . ' ' . $errorStatusCode . ' Internal Server Error');
+			@header('Status: ' . $errorStatusCode . ' Bad Request');
+
+			die(json_encode([
+				'status' => 'error',
+				'message' => $dataOrMsg,
+			]));
+		}
+
+		die(json_encode([
+			'status' => 'success',
+			'data' => $dataOrMsg,
+		]));
+	}
+
+	/**
+	 * @brief Check if a string is alphanumeric.
+	 *        We're defining it here in case it's not defined by some PHP installations.
+	 *        It's reuired by PHPMailer.
+	 *  
+	 * @param [in] $str string to check
+	 * @return bool, true if $str is alphanumeric, false otherwise
+	 */
+	if(!function_exists('ctype_alnum')) {
+		function ctype_alnum($str) {
+			return preg_match('/^[a-zA-Z0-9]+$/', $str);
+		}
+	}
+
+	/**
+	 * Perform an HTTP request and return the response, including headers and body, with support to cookies
+	 * 
+	 * @param string $url  URL to request
+	 * @param array $payload  payload to send with the request
+	 * @param array $headers  headers to send with the request, in the format ['header' => 'value']
+	 * @param string $type  request type, either 'GET' or 'POST'
+	 * @param string $cookieJar  path to a file to read/store cookies in
+	 * 
+	 * @return array  response, including `'headers'` and `'body'`, or error info if request failed
+	 */
+	function httpRequest($url, $payload = [], $headers = [], $type = 'GET', $cookieJar = null) {
+		// prep raw headers
+		if(!isset($headers['User-Agent'])) $headers['User-Agent'] = $_SERVER['HTTP_USER_AGENT'];
+		if(!isset($headers['Accept'])) $headers['Accept'] = $_SERVER['HTTP_ACCEPT'];
+		$rawHeaders = [];
+		foreach($headers as $k => $v) $rawHeaders[] = "$k: $v";
+
+		$payloadQuery = http_build_query($payload);
+
+		// for GET requests, append payload to url
+		if($type == 'GET' && strlen($payloadQuery)) $url .= "?$payloadQuery";
+
+		$respHeaders = [];
+		$ch = curl_init();
+		$options = [
+			CURLOPT_URL => $url,
+			CURLOPT_POST => ($type == 'POST'),
+			CURLOPT_POSTFIELDS => ($type == 'POST' && strlen($payloadQuery) ? $payloadQuery : null),
+			CURLOPT_HEADER => false,
+			CURLOPT_HEADERFUNCTION => function($curl, $header) use (&$respHeaders) {
+				list($k, $v) = explode(': ', $header);
+				$respHeaders[trim($k)] = trim($v);
+				return strlen($header);
+			},
+			CURLOPT_HTTPHEADER => $rawHeaders,
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_RETURNTRANSFER => true,
+		];
+
+		/* if this is a localhost request, no need to verify SSL */
+		if(preg_match('/^https?:\/\/(localhost|127\.0\.0\.1)/i', $url)) {
+			$options[CURLOPT_SSL_VERIFYPEER] = false;
+			$options[CURLOPT_SSL_VERIFYHOST] = false;
+		}
+
+		if($cookieJar) {
+			$options[CURLOPT_COOKIEJAR] = $cookieJar;
+			$options[CURLOPT_COOKIEFILE] = $cookieJar;
+		}
+
+		if(defined('CURLOPT_TCP_FASTOPEN')) $options[CURLOPT_TCP_FASTOPEN] = true;
+		if(defined('CURLOPT_UNRESTRICTED_AUTH')) $options[CURLOPT_UNRESTRICTED_AUTH] = true;
+
+		curl_setopt_array($ch, $options);
+
+		$respBody = curl_exec($ch);
+
+		if($respBody === false) return [
+			'error' => curl_error($ch),
+			'info' => curl_getinfo($ch),
+		];
+
+		curl_close($ch);
+
+		// wait for 0.05 seconds after launching request
+		usleep(50000);
+
+		return [
+			'headers' => $respHeaders,
+			'body' => $respBody,
+		];
+	}
+
+	/**
+	 * @brief Retrieve owner username of the record with the given primary key value
+	 * 
+	 * @param $tn string table name
+	 * @param $pkValue string primary key value
+	 * @return string|null username of the record owner, or null if not found
+	 */
+	function getRecordOwner($tn, $pkValue) {
+		$tn = makeSafe($tn);
+		$pkValue = makeSafe($pkValue);
+		$owner = sqlValue("SELECT `memberID` FROM `membership_userrecords` WHERE `tableName`='{$tn}' AND `pkValue`='$pkValue'");
+
+		if(!strlen($owner)) return null;
+		return $owner;
+	}
+
+	/**
+	 * @brief Retrieve lookup field name that determines record owner of the given table
+	 * 
+	 * @param $tn string table name
+	 * @return string|null lookup field name, or null if default (record owner is user that creates the record)
+	 */
+	function tableRecordOwner($tn) {
+		$owners = [
+		];
+
+		return $owners[$tn] ?? null;
+	}
+

@@ -833,4 +833,82 @@ $Translation = [
 	'clear error queries' => 'Clear error queries',
 	'confirm clear logs' => 'This will clear specified query logs. Please confirm!',
 	'query logs cleared' => '<TYPE> query logs cleared.',
+
+	// Added in 22.13
+	'unicode error' => 'Unicode misconfiguration',
+	'unicode needs fixing' => 'The unicode encoding for the database and/or some tables needs to be fixed.',
+	'unicode fix details' => 'Tables encoded using the utf8 encoding will be adjusted to the more superior utf8mb4 encoding, which supports all unicode character sets.',
+	'fix unicode' => 'Fix unicode',
+	'Messages' => 'Messages',
+
+	// Added in 22.14
+	'mysql port' => 'MySQL port',
+	'db_port help' => 'If MySQL is using a different port than the default %s, enter it above.',
+	'checking database info' => 'Checking database info ...',
+	'if error persists check query log' => 'If the error persists below, please check the query error log for more details',
+
+	// Added in 23.14
+	'send mail to too many members' => "You are sending an email to too many members. This could take a lot of time and affect your server performance. If you have a huge number of members, we don't recommend sending an email to all of them at once.",
+	'n recipients' => '%s recipients',
+	'messages plugin cta' => 'Escape the email chaos. Experience the power of efficient communication with the Messages Plugin for AppGini.',
+	'update calculated fields' => 'Update calculated fields',
+	'no tables with calculated fields' => 'No tables with calculated fields were found.',
+	'description for updating calculated fields' => 'This tool allows you to update calculated fields in all records across all tables, which is useful in various scenarios. For instance, you might want to use this tool if you\'ve added a new calculated field and need to populate it for existing records, changed the formula of a calculated field and need to update all records accordingly, or imported new records into one or more tables.',
+	'cli tool for updating calculated fields' => 'There is also a command-line tool for updating calculated fields. This is very handy if you want to automate the process of updating calculated fields, for instance by adding a cron job to run the command-line tool periodically. For help on using the command-line tool, please run the following command in your terminal:',
+	'start updating' => 'Start updating',
+	'captcha label' => 'Please enter the characters you see in the image',
+
+	// Added in 23.17
+	'Explore more plugins' => 'Explore more plugins',
+	'Install a plugin' => 'Install a plugin',
+	'invalid order number' => 'Invalid order number',
+	'invalid order login' => 'Could not find an order with the specified order number and email address.',
+	'order number' => 'Order Number',
+	'view available plugins' => 'View available plugins',
+	'plugin check instructions' => 'Please enter your email address and order number below to check for available plugins.',
+	'no plugins available' => 'No plugins available for this order number.',
+	'install selected plugins' => 'Install selected plugins',
+	'select plugins to install' => 'Select plugins to install',
+	'plugins install progress' => 'Install progress',
+	'already installed' => 'already installed on %s (check to re-install)',
+	'plugin install failed' => 'Plugin installation failed!',
+	'plugin installed successfully' => 'Plugin installed successfully! Click to launch.',
+	'missing dependencies' => 'Errors or missing dependecies found',
+
+	// Added in 24.10
+	'fix record owners' => 'Fix record owners',
+	'record owner not configured for this table' => 'Record owner is not configured for this table.',
+	'start' => 'Start',
+	'fixing record owners' => 'Fixing record owners ...',
+	'number of runs' => 'Number of runs',
+	'no tables to fix record owners' => 'No tables have record owners configured. Nothing to fix.',
+	'fix record owners description' => 'This tool enables you to update the record owners for pre-existing records in tables that have record owners configured. This is useful when you have recently configured record owners for one or more tables and wish to apply the updated configuration to the existing records.',
+	'records updated:' => 'Records updated: ',
+	'ldap disable user signup' => 'Disable (only admins can add users)',
+	'ldap settings' => 'LDAP settings',
+	'login method' => 'Login method',
+	'default' => 'Default',
+	'ldap' => 'LDAP',
+	'ldap server' => 'LDAP server',
+	'ldap version' => 'LDAP version',
+	'ldap username prefix' => 'LDAP username prefix',
+	'ldap username suffix' => 'LDAP username suffix',
+	'ldap default user group' => 'Default user group for new LDAP users',
+	'Examples: ' => 'Examples: ',
+	'Example: ' => 'Example: ',
+	'ldap admin user warning' => 'Before enabling LDAP login, make sure the admin username %s exists in the LDAP server. Otherwise, you will not be able to sign in as admin.',
+
+	// Added in 24.11
+	'SQL' => 'SQL',
+	'click to copy' => 'Click to copy',
+	'copied' => 'Copied!',
+
+	// Added in 24.13
+	'db server status' => 'Database server status',
+	'db client status' => 'Database client status',
+	'date and time info' => 'Date and time info',
+
+	// Added in 24.14
+	'Copy permissions from another group' => 'Copy permissions from another group',
+	'revert permissions' => 'Revert permissions',
 ];

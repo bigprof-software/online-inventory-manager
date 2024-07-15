@@ -204,17 +204,29 @@
 			// fail if no user/pass provided
 			if(!$username || !$password) self::exitFailedLogin();
 
-			// fail if password incorrect/user not found
-			$hash = self::passwordHash($username);
-			if(!password_match($password, $hash)) self::exitFailedLogin();
+			$loginMethod = config('adminConfig')['loginMethod'] ?? 'default';
 
-			// prepare session
-			self::signInAs($username);
+			switch($loginMethod) {
+				case 'ldap':
+					if(!LDAP::authenticate($username, $password))
+						self::exitFailedLogin();
+					break;
 
-			Request::val('rememberMe') == 1 ? RememberMe::login($username) : RememberMe::delete();
+				case 'default':
+				default:
+					// fail if password incorrect/user not found
+					$hash = self::passwordHash($username);
+					if(!password_match($password, $hash)) self::exitFailedLogin();
 
-			// harden user's password hash
-			password_harden($username, $password, $hash);
+					// prepare session
+					self::signInAs($username);
+
+					Request::val('rememberMe') == 1 ? RememberMe::login($username) : RememberMe::delete();
+
+					// harden user's password hash
+					password_harden($username, $password, $hash);
+					break;
+			}
 
 			// hook: login_ok
 			if(function_exists('login_ok')) {
@@ -241,6 +253,10 @@
 			if(!headers_sent()) @header('HTTP/1.0 403 Forbidden');
 			redirect(self::FAILED_LOGIN_URL);
 			exit;
+		}
+
+		public static function isGuest() {
+			return !self::loggedSessionExists();
 		}
 
 		private static function loggedSessionExists() {

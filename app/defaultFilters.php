@@ -209,7 +209,10 @@
 	$adminConfig = config('adminConfig');
 	$isAnonymous = ($mi['group'] == $adminConfig['anonymousGroup']);
 
-	if(!$isAnonymous) {
+	// get view permissions for current table
+	$viewPerm = getTablePermissions($this->TableName)['view'];
+
+	if(!$isAnonymous && $viewPerm > 1) {
 		?>
 		<!-- ownership header  --> 
 		<div class="row filterByOwnership" style="border-bottom: solid 2px #DDD;">
@@ -231,17 +234,22 @@
 						<?php echo $Translation['All records owned by your group']; ?>
 					</label>
 				</div>
-				<div class="radio filterByOwnership">
-					<label>
-						<input type="radio" name="DisplayRecords" id="DisplayRecordsAll" value="all">
-						<?php echo $Translation['All records']; ?>
-					</label>
-				</div>
+				<?php if($viewPerm == 3) { ?>
+					<div class="radio filterByOwnership">
+						<label>
+							<input type="radio" name="DisplayRecords" id="DisplayRecordsAll" value="all">
+							<?php echo $Translation['All records']; ?>
+						</label>
+					</div>
+				<?php } ?>
 			</div>
 		</div>
 		<?php
 	}
 ?>
+
+<input type="hidden" name="RecordsPerPage" value="<?php echo intval($this->RecordsPerPage); ?>">
+<input type="hidden" name="SearchString" value="<?php echo html_attr($SearchString); ?>">
 
 <!-- filter actions -->
 <div class="row">
@@ -251,7 +259,7 @@
 	</div>
 	<?php if($this->AllowSavingFilters) { ?>
 		<div class="col-md-3 vspacer-lg">
-			<button type="submit" class="btn btn-default btn-block btn-lg" id="SaveFilter" name="SaveFilter_x" value="1"><i class="glyphicon glyphicon-align-left"></i> <?php echo $Translation['save filters']; ?></button>
+			<button type="submit" class="btn btn-default btn-block btn-lg" id="SaveFilter" name="SaveFilter_x" value="1"><i class="glyphicon glyphicon-bookmark"></i> <?php echo $Translation['save filters']; ?></button>
 		</div>
 	<?php } ?>
 	<div class="col-md-2 vspacer-lg">

@@ -1,6 +1,6 @@
 var AppGini = AppGini || {};
 
-AppGini.version = 22.12;
+AppGini.version = 24.16;
 
 /* initials and fixes */
 jQuery(function() {
@@ -32,7 +32,7 @@ jQuery(function() {
 
 		$j('.detail_view .img-responsive').css({'max-width' : parseInt($j('.detail_view').width() * full_img_factor) + 'px'});
 
-		/* change height of sizer div below navbar to accomodate navbar height */
+		/* change height of sizer div below navbar to accommodate navbar height */
 		$j('.top-margin-adjuster').height($j('.navbar-fixed-top:visible').height() ?? 10);
 
 		/* remove labels from truncated buttons, leaving only glyphicons */
@@ -128,7 +128,7 @@ jQuery(function() {
 	update_action_buttons();
 
 	/* remove empty images and links */
-	$j('.table a[href="' + AppGini.imgFolder + '"], img[src="' + AppGini.imgFolder + '"]').remove();
+	$j(`.table a[href="${AppGini.config.imgFolder}"], img[src="${AppGini.config.imgFolder}"]`).remove();
 
 	/* remove empty email links */
 	$j('a[href="mailto:"]').remove();
@@ -157,18 +157,9 @@ jQuery(function() {
 	// format .locale-int and .locale-float numbers
 	// to stop it, set AppGini.noLocaleFormatting to true in a hook script in footer-extras.php, .. etc
 	if(!AppGini.noLocaleFormatting) setInterval(() => {
-		$j('.locale-int').each(function() {
+		$j('.locale-int, .locale-float').each(function() {
 			let i = $j(this).text().trim();
-			if(!/^\d+(\.\d+)?$/.test(i)) return; // already formatted or invalid number
-
-			$j(this).text(parseInt(i).toLocaleString());
-		})
-
-		$j('.locale-float').each(function() {
-			let f = $j(this).text().trim();
-			if(!/^\d+(\.\d+)?$/.test(f)) return; // already formatted or invalid number
-
-			$j(this).text(parseFloat(f).toLocaleString());
+			$j(this).text(AppGini.localeFormat(i, $j(this).hasClass('locale-int')));
 		})
 	}, 100);
 
@@ -183,6 +174,7 @@ jQuery(function() {
 		if(id == undefined || types == undefined || maxSize == undefined) return;
 
 		AppGini.checkFileUpload(id, types, maxSize);
+		AppGini.previewUploadedImage(id);
 	})
 
 	/* allow clearing chosen file upload */
@@ -193,6 +185,17 @@ jQuery(function() {
 			.find('input[type="file"]')
 			.val('')
 			.trigger('change');
+	})
+
+	/* confirm when deleting a record, and prevent form validation */
+	$j('button[id=delete]').on('click', (e) => {
+		if(!confirm(AppGini.Translate._map['are you sure?'])) {
+			e.preventDefault();
+			return false;
+		}
+
+		$j('form').attr('novalidate', 'novalidate')
+		return true;
 	})
 
 	/* select email/web links on uncollapsing in DV */
@@ -211,7 +214,7 @@ jQuery(function() {
 		var tvHasWarning = $j('.table_view tfoot .alert-warning').length > 0;
 
 		setInterval(function() {
-			$j('#Print, #CSV, #tv-tools, .table_view thead, .table_view tr.success')
+			$j('#Print, #CSV, .tv-tools, .table_view thead, .table_view tr.success')
 				.toggleClass('hidden', tvHasWarning);
 
 			$j('.tv-toggle').parent().toggleClass('hidden', tvHasWarning);
@@ -241,6 +244,107 @@ jQuery(function() {
 		action: () => $j('.lookup-flex .match-text').addClass('rspacer-lg').parents('.lookup-flex').removeClass('lookup-flex').addClass('form-control-static'),
 		timeout: 30000
 	})
+
+	// define dragover and dragover-error CSS classes based on current theme colors
+	AppGini.createCSSClass('dragover', 'alert alert-info', ['border-color'], {'border-width': '3px', 'border-style': 'dashed'});
+	AppGini.createCSSClass('dragover-error', 'alert alert-danger', ['border-color'], {'border-width': '3px'});
+
+	// allow drag and drop of files into file upload fields
+	$j('input[type=file]').parents('.form-control-static')
+	.on('dragover', (e) => {
+		e.preventDefault();
+		$j(e.currentTarget).addClass('dragover');
+	})
+	.on('dragleave', (e) => {
+		$j(e.currentTarget).removeClass('dragover dragover-error');
+	})
+	.on('drop', (e) => {
+		e.preventDefault();
+		$j(e.currentTarget).removeClass('dragover dragover-error');
+
+		const fileList = e.originalEvent.dataTransfer.files ?? null;
+		if(!fileList || fileList.length > 1) {
+			$j(e.currentTarget).addClass('dragover-error');
+			return;
+		}
+
+		const input = $j(e.currentTarget).find('input[type=file]');
+		input[0].files = fileList;
+		input.trigger('change');
+	})
+
+	// open links that have a .modal-link class in a modal window
+	$j('body').on('click', 'a[href].modal-link', function(e) {
+		e.preventDefault();
+		modal_window({
+			url: $j(this).attr('href'),
+			title: $j(this).attr('title') || $j(this).text(),
+			size: 'full',
+		});
+	})
+
+	// update child counts
+	AppGini.updateChildrenCount();
+
+	// update calculated fields if childrenCountChanged event is triggered
+	$j(document).on('childrenCountChanged', () => AppGini.calculatedFields.init());
+
+	// trigger AppGini.updateChildrenCount() on clicking .update-children-count
+	$j(document).on('click', '.update-children-count', function() {
+		AppGini.updateChildrenCount(false); // update only once -- no rescheduling
+	})
+
+	AppGini.once({
+		condition: () => AppGini.Translate !== undefined,
+		action: () => moment.locale(AppGini.Translate._map['datetimepicker locale'])
+	})
+
+	// if upload toolbox is empty, hide it
+	$j('.upload-toolbox').toggleClass('hidden', !$j('.upload-toolbox').children().not('.hidden').length)
+
+	// on clicking .sql-query-copier or .sql-query-container, copy the query to clipboard
+	// and set .sql-query-copier to 'copied' for 1 second
+	$j(document).on('click', '.sql-query-copier', function() {
+		const query = $j(this).siblings('.sql-query-container').text().trim();
+		if(!query) return;
+
+		AppGini.copyToClipboard(query);
+
+		$j(this).text(AppGini.Translate._map['copied']);
+		setTimeout(() => $j(this).text(AppGini.Translate._map['click to copy']), 1000);
+	})
+	$j(document).on('click', '.sql-query-container', function() {
+		$j(this).siblings('.sql-query-copier').click();
+	})
+
+	// in TVP, disable lightbox for images
+	if(AppGini.currentViewIs('TVP')) {
+		const links = document.querySelectorAll('a[data-lightbox]');
+		links.forEach(function(link) {
+			const img = link.innerHTML; // Get the inner HTML of the <a> tag, which should be an <img> element
+			link.parentNode.replaceChild(link.firstChild, link); // Replace the <a> tag with its child <img>
+		});
+	}
+
+	// render the DV layout toolbar
+	AppGini.renderDVLayoutToolbar();
+
+	// handle click on layout toolbar buttons
+	$j('.detail_view-layout').on('click', 'a', function(e) {
+		e.preventDefault();
+
+		if($j(this).hasClass('switch-to-single-column-layout')) {
+			AppGini.applySingleColumnLayout();
+		} else if($j(this).hasClass('switch-to-double-column-layout')) {
+			AppGini.applyDoubleColumnLayout();
+		} else if($j(this).hasClass('switch-to-triple-column-layout')) {
+			AppGini.applyTripleColumnLayout();
+		}
+	});
+
+	AppGini.renderTVRecordsPerPageSelector();
+	AppGini.appendRecordsPerPageToTableLinks();
+
 });
 
 /* show/hide TV action buttons based on whether records are selected or not */
@@ -273,7 +377,7 @@ AppGini.ajaxCache = function() {
 	var _tests = [];
 
 	/*
-		An array of functions that receive a parameterless url and a parameters object,
+		An array of functions that receive a parameter-less url and a parameters object,
 		makes a test,
 		and if test passes, executes something and/or
 		returns a non-false value if test passes,
@@ -807,7 +911,7 @@ function mass_change_owner(t, ids) {
 }
 
 function add_more_actions_link() {
-	window.open('https://bigprof.com/appgini/help/advanced-topics/hooks/multiple-record-batch-actions?r=appgini-action-menu');
+	window.open('https://bigprof.com/appgini/help/advanced-topics/hooks/multiple-record-batch-actions/?r=appgini-action-menu');
 }
 
 /* detect current screen size (xs, sm, md or lg) */
@@ -1655,6 +1759,33 @@ AppGini.checkFileUpload = function(fieldName, extensions, maxSize) {
 
 	return true;
 }
+
+AppGini.previewUploadedImage = (id) => {
+	const imageInput = $j(`#${id}`);
+	const imagePreview = $j(`#${id}-image`);
+
+	// abort if not accept attr doesn't contain image/*
+	if(!imageInput.attr('accept').match(/image\/\*/i)) return;
+
+	// store original image path if not already stored
+	if(imagePreview.data('original-image') === undefined)
+		imagePreview.data('original-image', imagePreview.attr('src'));
+
+	// if no file selected, restore original image and return
+	if(imageInput[0].files.length == 0) {
+		imagePreview.attr('src', imagePreview.data('original-image'));
+		return;
+	}
+
+	// read selected file and display it in the preview
+	const reader = new FileReader();
+	reader.onload = (e) => {
+		imagePreview.attr('src', e.target.result);
+	}
+
+	reader.readAsDataURL(imageInput[0].files[0]);
+}
+
 /* setInterval alternative that repeats an action until a condition is met */
 AppGini.repeatUntil = function(config) {
 	if(config === undefined) return;
@@ -1745,6 +1876,11 @@ AppGini.sortSelect2ByRelevence = function(res, cont, qry) {
 			if(aStart && !bStart) return false;
 			if(!aStart && bStart) return true;
 		}
+
+		// if trimmed item is empty, always return it first
+		if(a.text.trim() == '') return false;
+		if(b.text.trim() == '') return true;
+
 		return a.text > b.text;
 	});
 }
@@ -1763,6 +1899,12 @@ AppGini.alterDVTitleLinkToBack = function() {
 		$j('#deselect').trigger('click');
 		return false;
 	})
+}
+
+AppGini.isRecordUpdated = () => {
+	var url = new URL(window.location.href);
+	var params = new URLSearchParams(url.search);
+	return params.has('record-updated-ok') || params.has('record-added-ok');
 }
 
 AppGini.lockUpdatesOnUserRequest = function() {
@@ -1796,11 +1938,17 @@ AppGini.lockUpdatesOnUserRequest = function() {
 			locker.toggleClass('active');
 			locker.prop('title', AppGini.Translate._map[locker.hasClass('active') ? 'Enable' : 'Disable']);
 		})
+
+	// if record has just been added/updated, lock updates
+	if(AppGini.isRecordUpdated()) $j('.btn-update-locker').trigger('click');
 }
 
 /* function to focus a specific element of a form, given field name */
 AppGini.focusFormElement = function(tn, fn) {
 	if(AppGini.mobileDevice()) return;
+
+	// if we have a visible alert, don't scroll to focused element
+	const doScroll = ($j('.alert:visible').length == 0);
 
 	var inputElem = $j([
 		'select[id=' + fn + '-mm]',
@@ -1815,7 +1963,7 @@ AppGini.focusFormElement = function(tn, fn) {
 
 	if(inputElem.length) {
 		inputElem.focus();
-		AppGini.scrollToDOMElement(inputElem[0], -100);
+		if(doScroll) AppGini.scrollToDOMElement(inputElem[0], -100);
 		return;
 	}
 
@@ -1823,7 +1971,7 @@ AppGini.focusFormElement = function(tn, fn) {
 	var linker = $j('[id=' + fn + '-edit-link]');
 	if(linker.length) {
 		linker.click();
-		AppGini.scrollToDOMElement(linker[0], -100);
+		if(doScroll) AppGini.scrollToDOMElement(linker[0], -100);
 		return;
 	}
 
@@ -1831,7 +1979,7 @@ AppGini.focusFormElement = function(tn, fn) {
 	var s2 = $j('[id=' + fn + '-container], [id=s2id_' + fn + ']');
 	if(s2.length) {
 		s2.select2('focus');
-		AppGini.scrollToDOMElement(s2[0], -100);
+		if(doScroll) AppGini.scrollToDOMElement(s2[0], -100);
 		return;
 	}
 }
@@ -1964,7 +2112,7 @@ AppGini.newRecord = function(callback, params) {
 
 AppGini.updateKeyboardShortcutsStatus = function() {
 	var shortcutsEnabled = JSON.parse(localStorage.getItem('AppGini.shortcutKeysEnabled')) || false;
-	var img = $j('nav .help-shortcuts-launcher');
+	var img = $j('nav .help-shortcuts-launcher img');
 
 	img.length ? img.attr('src', img.attr('src').replace(/\/keyboard.*/, '/keyboard' + (shortcutsEnabled ? '' : '-disabled') + '.png')) : null;
 }
@@ -2050,7 +2198,8 @@ AppGini.handleKeyboardShortcuts = function() {
 	AppGini._handleKeyboardShortcutsApplied = true;
 }
 
-AppGini.showKeyboardShortcuts = function() {
+AppGini.showKeyboardShortcuts = (e) => {
+	if(e) e.preventDefault();
 	if(AppGini.modalOpen()) return;
 
 	var kmap = AppGini.shortcutKeyMap, keys = [], $t = AppGini.Translate._map;
@@ -2092,7 +2241,7 @@ AppGini.showKeyboardShortcuts = function() {
 
 	var title = '<img style="$style" src="$src"> <span class="text-$color">$title</span> $toggler'
 				.replace('$style', 'height: 1.75em; vertical-align: bottom;')
-				.replace('$src', $j('.help-shortcuts-launcher').attr('src'))
+				.replace('$src', $j('.help-shortcuts-launcher img').attr('src'))
 				.replace('$color', shortcutsEnabled ? 'success' : 'danger')
 				.replace('$title', shortcutsEnabled ? $t['keyboard shortcuts enabled'] : $t['keyboard shortcuts disabled'])
 				.replace('$toggler', toggler)
@@ -2120,7 +2269,7 @@ AppGini.showKeyboardShortcuts = function() {
 	 */
 	if(typeof(_noShortcutsReference) == 'undefined')
 		$j(
-			'<a href="https://bigprof.com/appgini/help/working-with-generated-web-database-application/shortcut-keys" target="_blank">' +
+			'<a href="https://bigprof.com/appgini/help/working-with-generated-web-database-application/shortcut-keys/" target="_blank">' +
 			AppGini.Translate._map['keyboard shorcuts reference'] +
 			'</a>'
 		).appendTo('#' + modalId + ' .modal-footer');
@@ -2176,4 +2325,532 @@ AppGini.applyNiceditBgColors = function() {
 			].join(',') +
 		')' });
 	})
+}
+/**
+ * Adds a link or a divider to the profile menu.
+ * Examples:
+ *    To append a divider to the menu:
+ *       AppGini.addToProfileMenu('--')
+ * 
+ *    To append a text-only link labeled 'Test link' that opens a page 'test'
+ *    in the same tab: 
+ *       AppGini.addToProfileMenu({ href: 'test', text: 'Test link' })
+ * 
+ *    To append a link labeled 'Test link' with an image
+ *    that opens a page 'test' in the same tab: 
+ *       AppGini.addToProfileMenu({
+ *          href: 'test',
+ *          text: 'Test link',
+ *          img: 'path/to/img'
+ *       })
+ * 
+ *    To append a link labeled 'Test link' with a checkmark glyphicon
+ *    that opens a page 'test' in a new tab: 
+ *       AppGini.addToProfileMenu({
+ *          href: 'test',
+ *          text: 'Test link',
+ *          target: '_blank',
+ *          icon: 'ok'
+ *       })
+ */
+AppGini.addToProfileMenu = (link) => {
+	const li = $j('<li></li>')
+
+	if(link === '--')
+		return li.addClass('divider').appendTo('.profile-menu');
+
+	const linkHtml = $j('<a></a>');
+
+	linkHtml
+		.attr('href', link.href ?? '')
+		.addClass(link.class ?? '')
+		.attr('target', link.target ?? '')
+		.text((link.text ?? '').trim())
+
+	if(link.img ?? false)
+		$j('<img>')
+			.attr('src', link.img)
+			.css({
+				maxHeight: '1.5em',
+				maxWidth: '1.5em',
+				marginLeft: '-0.4em',
+			})
+			.addClass('rspacer-sm')
+			.prependTo(linkHtml)
+
+	else if(link.icon ?? false)
+		$j(`<i></i>`)
+			.addClass(`glyphicon glyphicon-${link.icon} rspacer-md`)
+			.prependTo(linkHtml)
+
+	linkHtml.appendTo(li);
+	li.appendTo('.profile-menu')
+}
+
+/**
+ * Creates a CSS class with the provided name and properties.
+ * Properties are retrieved from the provided class(es) plus the provided
+ * additional properties.
+ * 
+ * @param {string} className The name of the CSS class to create.
+ * @param {string} sourceElmClass The class(es) to retrieve properties from.
+ * @param {string[]} sourceElmProps The properties to retrieve from the source class(es).
+ * @param {object} additionalCSSProps Additional properties to add to the created class.
+ */
+AppGini.createCSSClass = (className, sourceElmClass, sourceElmProps = [], additionalCSSProps = {}) => {
+	// create a new hidden element with the provided class
+	const hiddenElm = document.createElement('div');
+	hiddenElm.classList.add('hidden');
+	hiddenElm.classList.add(...sourceElmClass.split(' '));
+	document.body.appendChild(hiddenElm);
+
+	// get the computed style of the hidden element
+	const computedStyle = window.getComputedStyle(hiddenElm);
+
+	// retrieve the provided properties from the computed style
+	const props = {};
+	sourceElmProps.forEach(prop => {
+		props[prop] = computedStyle.getPropertyValue(prop);
+	});
+
+	// create a new style element with the provided class and properties
+	const styleElm = document.createElement('style');
+	styleElm.innerHTML = `.${className} {`;
+	Object.entries(props).forEach(([prop, value]) => {
+		styleElm.innerHTML += `${prop}: ${value}; `;
+	});
+	Object.entries(additionalCSSProps).forEach(([prop, value]) => {
+		styleElm.innerHTML += `${prop}: ${value}; `;
+	});
+	styleElm.innerHTML += '}';
+
+	// add the new style element to the head of the document
+	document.head.appendChild(styleElm);
+
+	// remove the hidden element
+	document.body.removeChild(hiddenElm);
+}
+
+/**
+ * Detect and update child info elements in the current page.
+ * @param {boolean} scheduleNextCall If true, schedule next call to this function.
+ */
+AppGini.updateChildrenCount = (scheduleNextCall = true) => {
+	if(!$j('.count-children').length) return;
+
+	AppGini._childrenCount = AppGini._childrenCount || {};
+
+	// if there are no visible .count-children elements, schedule next call and return
+	if(!$j('.count-children:visible').length && scheduleNextCall) {
+		setTimeout(AppGini.updateChildrenCount, 1000);
+		return;
+	}
+
+	// TVP?
+	if(AppGini.currentViewIs('TVP') && !AppGini._childRecordsInfoAdaptedToTVP) {
+		// show only the count, no link, no add new
+		$j('.child-records-info').not('th').html('<div class="text-right count-children"></div>');
+		AppGini._childRecordsInfoAdaptedToTVP = true;
+	}
+
+	// for each .count-children element, get the nearest parent .child-records-info
+	const countEls = {};
+	$j('.count-children').each(function() {
+		const countEl = $j(this);
+		const parentEl = countEl.closest('.child-records-info');
+		const childTable = parentEl.data('table');
+		const childLookupField = parentEl.data('lookup-field');
+		const id = parentEl.data('id');
+
+		if(!childTable || !childLookupField || !id) return;
+
+		countEls[childTable] = countEls[childTable] || {};
+		countEls[childTable][childLookupField] = countEls[childTable][childLookupField] || [];
+		countEls[childTable][childLookupField].push(id);
+	});
+
+	if(Object.keys(countEls).length == 0) return;
+
+	// disable .update-children-count buttons
+	$j('.update-children-count').prop('disabled', true);
+
+	// issue an ajax request for each child table > lookup field
+	let countsChanged = false;
+	const requests = [];
+	const startTimestamp = AppGini.unixTimestamp().msec;
+	for(const ChildTable in countEls) {
+		for(const ChildLookupField in countEls[ChildTable]) {
+			const childInfoContainers = $j(`.child-records-info[data-table=${ChildTable}][data-lookup-field=${ChildLookupField}]`);
+
+			requests.push($j.ajax({
+				url: `${AppGini.config.url.replace(/\/$/, '')}/parent-children.php`,
+				data: {
+					ChildTable,
+					ChildLookupField,
+					IDs: countEls[ChildTable][ChildLookupField],
+					Operation: 'get-count'
+				},
+				type: 'POST',
+				success: function(resp) {
+					if(resp.status != 'success') return;
+
+					// resp.data is an object with keys = IDs and values = count
+					for(const id in resp.data.counts) {
+						const currentCell = childInfoContainers.filter(`[data-id=${id}]`).find('.count-children')
+						if(currentCell.length == 0) continue;
+
+						if(AppGini._childrenCount[ChildTable]?.[ChildLookupField]?.[id] != resp.data.counts[id]) {
+							countsChanged = true;
+							currentCell.text(resp.data.counts[id]);
+
+							// highlight changed cell for 1 sec
+							currentCell.addClass('bg-warning');
+							setTimeout(() => currentCell.removeClass('bg-warning'), 1000);
+						}
+
+						AppGini._childrenCount[ChildTable] = AppGini._childrenCount[ChildTable] || {};
+						AppGini._childrenCount[ChildTable][ChildLookupField] = AppGini._childrenCount[ChildTable][ChildLookupField] || {};
+						AppGini._childrenCount[ChildTable][ChildLookupField][id] = resp.data.counts[id];
+
+					}
+				}
+			}));
+		}
+	}
+
+	// when all requests are done, schedule next call
+	$j.when(...requests).done(function() {
+		// trigger childrenCountChanged event if counts changed
+		if(countsChanged)
+			$j(document).trigger('childrenCountChanged');
+
+		// enable .update-children-count buttons
+		$j('.update-children-count').prop('disabled', false);
+
+		// if elapsed time is > 2 seconds, wait 1 minute before next call, else wait 10 seconds
+		const elapsed = AppGini.unixTimestamp().msec - startTimestamp;
+		if(scheduleNextCall)
+			setTimeout(AppGini.updateChildrenCount, elapsed > 2000 ? 60000 : 10000);
+	});
+}
+
+AppGini.copyToClipboard = (text) => {
+	if(navigator.clipboard) {
+	   navigator.clipboard.writeText(text);
+	   return;
+	}
+
+	const textArea = document.createElement('textarea');
+	textArea.value = text;
+	document.body.appendChild(textArea);
+	textArea.select();
+	document.execCommand('copy');
+	document.body.removeChild(textArea);
+}
+
+AppGini.htmlEntitiesToText = (html) => {
+	const txt = document.createElement('textarea');
+	txt.innerHTML = html;
+	return txt.value;
+}
+
+AppGini.localeFormat = (num, isInt, locale) => {
+	// ensure num is a string
+	num = num.toString();
+
+	// if num has no digits, return it as is
+	if (!num.match(/\d/)) {
+		return num;
+	}
+
+	// if isInt is not provided or not true, set as false
+	isInt = isInt === true;
+
+	// if locale not provided, default to current locale
+	locale = locale || navigator.language;
+
+	const globalNumeralsRegex = /[\d\u0660-\u0669\u0966-\u096F\u09E6-\u09EF\u0BE6-\u0BEF\u0E50-\u0E59\u1040-\u1049\u17E0-\u17E9]/g;
+
+	// decimal separator based on locale
+	const decimalSeparator = new Intl.NumberFormat(locale).format(1.1).replace(globalNumeralsRegex, '');
+	// thousands separator based on locale
+	const thousandsSeparator = new Intl.NumberFormat(locale).format(11111).replace(globalNumeralsRegex, '');
+	// Localized NaN
+	const lNaN = new Intl.NumberFormat(locale).format(NaN);
+
+	// if number is a raw number (e.g. 1234.5 or 12.34), format it based on locale
+	if (!isInt && num.indexOf(decimalSeparator) === -1) {
+		let lfn = new Intl.NumberFormat(locale).format(num);
+		return lfn === lNaN ? num : lfn;
+	}
+
+	// if number is already formatted in the locale, return it as is
+	if (num.indexOf(thousandsSeparator) !== -1) {
+		return num;
+	}
+
+	// return the number formatted in the locale
+	return new Intl.NumberFormat(locale).format(parseFloat(num.replace(decimalSeparator, '.')));
+}
+
+AppGini.storedLayout = (val) => {
+	const view = $j('[name="current_view"]').val();
+
+	if(val !== undefined) {
+		localStorage.setItem(`OIM.${AppGini.currentTableName()}.${view}.layout`, val);
+	}
+	return localStorage.getItem(`OIM.${AppGini.currentTableName()}.${view}.layout`);
+}
+
+AppGini.renderDVLayoutToolbar = () => {
+	// already rendered? return
+	if($j('.detail_view-layout').length) return;
+
+	// if not in detail view, return
+	if(!$j('.detail_view').length) return;
+
+	// if we have less than 3 divs in the first fieldset, return
+	if($j('fieldset.form-horizontal').first().children('div').length < 3) return;
+
+	// create the layout toolbar above 1st fieldset
+	$j('fieldset.form-horizontal').first().before(`
+		<div class="detail_view-layout hidden-print">
+			<a href="#" class="switch-to-single-column-layout"><img src="${AppGini.config.url}resources/images/single-column-layout.png"></a>
+			<a href="#" class="switch-to-double-column-layout"><img src="${AppGini.config.url}resources/images/double-column-layout.png"></a>
+			<a href="#" class="switch-to-triple-column-layout"><img src="${AppGini.config.url}resources/images/triple-column-layout.png"></a>
+		</div>
+	`);
+
+	// retrieve user preference from local storage
+	const dvLayout = AppGini.storedLayout();
+
+	// apply user preference if found
+	const windowWidth = $j(window).width();
+	if(dvLayout == 'double-column-layout' && windowWidth >= 1200) {
+		AppGini.applyDoubleColumnLayout();
+	} else if(dvLayout == 'triple-column-layout' && windowWidth >= 1700) {
+		AppGini.applyTripleColumnLayout();
+	}
+}
+
+AppGini.applySingleColumnLayout = () => {
+	// move all divs inside second and third fieldsets to the first fieldset
+	$j('fieldset.form-horizontal').slice(1).children('div').appendTo($j('fieldset.form-horizontal').first());
+
+	// remove second and third fieldsets
+	$j('fieldset.form-horizontal').slice(1).remove();
+
+	// remove .double-column-layout and .triple-column-layout classes from all fieldsets
+	$j('fieldset.form-horizontal').removeClass('double-column-layout triple-column-layout');
+
+	// store preference in local storage
+	AppGini.storedLayout('single-column-layout');
+}
+
+AppGini.applyDoubleColumnLayout = () => {
+	// if already in double-column layout, return
+	if($j('fieldset.form-horizontal').first().hasClass('double-column-layout')) return;
+
+	// if already in triple-column layout, switch to double-column layout
+	if($j('fieldset.form-horizontal').first().hasClass('triple-column-layout')) {
+		AppGini.applySingleColumnLayout();
+	}
+
+	// create a new fieldset for the third column
+	$j('fieldset.form-horizontal').first().after('<fieldset></fieldset>');
+
+	// add .double-column-layout class to all fieldsets
+	$j('fieldset').addClass('form-horizontal double-column-layout');
+
+	// move half of the divs from the first fieldset to the second fieldset
+	const half = Math.ceil($j('fieldset.form-horizontal').first().children('div').length / 2);
+	$j('fieldset.form-horizontal').first().children('div').slice(half).appendTo($j('fieldset.form-horizontal').first().next());
+
+	// store preference in local storage
+	AppGini.storedLayout('double-column-layout');
+}
+
+AppGini.applyTripleColumnLayout = () => {
+	// if already in triple-column layout, return
+	if($j('fieldset.form-horizontal').first().hasClass('triple-column-layout')) return;
+
+	// if already in double-column layout, switch to triple-column layout
+	if($j('fieldset.form-horizontal').first().hasClass('double-column-layout')) {
+		AppGini.applySingleColumnLayout();
+	}
+
+	// create a new fieldset for the second column
+	$j('fieldset.form-horizontal').first().after('<fieldset></fieldset>');
+
+	// create a new fieldset for the third column
+	$j('fieldset.form-horizontal').first().after('<fieldset></fieldset>');
+
+	// add .triple-column-layout class to all fieldsets
+	$j('fieldset').addClass('form-horizontal triple-column-layout');
+
+	// move 1/3 of the divs from the first fieldset to the second fieldset
+	const third = Math.ceil($j('fieldset.form-horizontal').first().children('div').length / 3);
+	$j('fieldset.form-horizontal').first().children('div').slice(third * 2).appendTo($j('fieldset.form-horizontal').first().next().next());
+	$j('fieldset.form-horizontal').first().children('div').slice(third).appendTo($j('fieldset.form-horizontal').first().next());
+
+	// store preference in local storage
+	AppGini.storedLayout('triple-column-layout');
+}
+
+
+AppGini.preparePagesMenu = (recordsPerPage, pagesMenuId, lastPage, currentPage, lump) => {
+	const addPageNumbers = (fromPage, toPage) => {
+		const pagesMenu = document.getElementById(pagesMenuId);
+		let ellipsesIndex = 0;
+
+		if(fromPage > toPage) return;
+
+		if(fromPage > 0) {
+			if(pagesMenu.options[pagesMenu.options.length - 1].text != fromPage) {
+				ellipsesIndex = pagesMenu.options.length;
+				fromPage--;
+			}
+		}
+
+		for(i = fromPage; i <= toPage; i++) {
+			var option = document.createElement("option");
+			option.text = (i + 1);
+			option.value = i;
+			if(i == currentPage) { option.selected = "selected"; }
+			try{
+				/* for IE earlier than version 8 */
+				pagesMenu.add(option, pagesMenu.options[null]);
+			}catch(e) {
+				pagesMenu.add(option, null);
+			}
+		}
+
+		if(ellipsesIndex > 0) {
+			pagesMenu.options[ellipsesIndex].text = " ... ";
+		}      
+	}
+
+	// empty the pages menu and clear any previous event handlers
+	$j(`#${pagesMenuId}`).empty()
+		.off('change')
+		.on('change', function() {
+			// get parent form
+			const parentForm = $j(this).closest('form');
+
+			// novalidate
+			parentForm.attr('novalidate', 'novalidate');
+
+			// set NoDV hidden field value to 1
+			parentForm.find('input[name=NoDV]').val(1);
+
+			// and FirstRecord
+			parentForm.find('input[name=FirstRecord]').val(parseInt($j(this).val()) * recordsPerPage + 1);
+
+			// submit the form
+			parentForm.submit();
+		});
+
+	if(lastPage <= lump * 3) {
+		addPageNumbers(0, lastPage);
+		return;
+	}
+
+	addPageNumbers(0, lump - 1);
+	if(currentPage < lump) addPageNumbers(lump, currentPage + lump / 2);
+	if(currentPage >= lump && currentPage < (lastPage - lump)) {
+	addPageNumbers(
+		Math.max(currentPage - lump / 2, lump),
+		Math.min(currentPage + lump / 2, lastPage - lump - 1)
+	);
+	}
+	if(currentPage >= (lastPage - lump)) addPageNumbers(currentPage - lump / 2, lastPage - lump - 1);
+	addPageNumbers(lastPage - lump, lastPage);
+}
+
+AppGini.storedRecordsPerPage = (val) => {
+	if(val !== undefined) {
+		localStorage.setItem(`OIM.${AppGini.currentTableName()}.recordsPerPage`, val);
+	}
+	return localStorage.getItem(`OIM.${AppGini.currentTableName()}.recordsPerPage`);
+}
+
+AppGini.renderTVRecordsPerPageSelector = () => {
+	// if not TV, return
+	if(!AppGini.currentViewIs('TV')) return;
+
+	// if records per page selector already rendered, return
+	if($j('#records-per-page-selector').length) return;
+
+	// to override the default records per page options,
+	// set AppGini.config.recordsPerPageOptions as an array of integers 
+	// in hooks/header-extras.php or hooks/footer-extras.php
+	let rppOptions = [5, 10, 20, 30, 40, 50, 100, 200];
+	if(AppGini.config.recordsPerPageOptions) {
+		rppOptions = AppGini.config.recordsPerPageOptions;
+	}
+
+	// create the records per page selector and append to .record-count-info
+	$j('.record-count-info').append(`
+		<div class="form-inline pull-right">
+			<label style="font-weight: normal;">
+				<i class="glyphicon glyphicon-menu-hamburger text-muted"></i>
+				${AppGini.Translate._map['records per page']}
+			</label>
+			<select id="records-per-page-selector" class="form-control input-sm">
+				${rppOptions.map(rpp => `<option value="${rpp}">${rpp}</option>`).join('')}
+			</select>
+		</div>
+		<div class="clearfix"></div>
+	`);
+
+	// handle change event
+	$j('#records-per-page-selector').on('change', function() {
+		const newRecordsPerPage = $j(this).val();
+
+		AppGini.storedRecordsPerPage(newRecordsPerPage);
+
+		// get parent form
+		const parentForm = $j(this).closest('form');
+
+		// novalidate
+		parentForm.attr('novalidate', 'novalidate');
+
+		// no DV
+		parentForm.find('input[name=NoDV]').val(1);
+
+		// set first record hidden field value to 1
+		parentForm.find('input[name=FirstRecord]').val(1);
+
+		// set RecordsPerPage hidden field value
+		parentForm.find('input[name=RecordsPerPage]').val(newRecordsPerPage);
+
+		// submit the form
+		parentForm.submit();
+	});
+
+	// if stored records per page > 0 and not the same as the default,
+	// set the selected option to the stored value and trigger change event
+	const defaultRecordsPerPage = $j('[name=RecordsPerPage]').val();
+	const storedRecordsPerPage = AppGini.storedRecordsPerPage();
+	if(storedRecordsPerPage > 0 && storedRecordsPerPage != defaultRecordsPerPage && storedRecordsPerPage <= 200) {
+	   $j('#records-per-page-selector').val(storedRecordsPerPage).trigger('change');
+	   return;
+	}
+
+	// set the selected option based on the current records per page
+	$j('#records-per-page-selector').val(defaultRecordsPerPage);
+}
+
+AppGini.currentViewIs = (view) => $j('#current_view').val()?.toLowerCase() == view?.toLowerCase();
+
+AppGini.appendRecordsPerPageToTableLinks = () => {
+	// find stored records per page and extract table names from keys
+	Object.keys(localStorage).filter(k => k.match(/OIM\..*?\.recordsPerPage/)).forEach(k => {
+		const tableName = k.split('.')[1];
+		$j(`a[href*="/${tableName}_view.php"], a[href^="${tableName}_view.php"]`).each(function() {
+			const href = new URL($j(this).attr('href'), window.location.href);
+			href.searchParams.set('RecordsPerPage', localStorage.getItem(k));
+			$j(this).attr('href', href.toString());
+		});
+	});
 }

@@ -12,6 +12,23 @@ class DataList {
 		$QueryOrder,
 		$filterers,
 
+		$translation,
+		$FilterAnd,
+		$FilterField,
+		$FilterOperator,
+		$FilterValue,
+		$QueryFieldsIndexed,
+		$FilterPage,
+		$QuerySearchableFields,
+		$SortFields,
+		$TableIcon,
+		$QuickSearchText,
+		$ccffv, // current control's filter value -- for internal use only
+		$ColCaption,
+		$ColNumber,
+		$ColFieldName,
+		$QueryFields,
+
 		$ColWidth, // array of field widths
 		$TableName,
 
@@ -31,6 +48,7 @@ class DataList {
 		$AllowPrintingDV,
 		$HideTableView,
 		$AllowCSV,
+		$AllowAdminShowSQL,
 		$CSVSeparator,
 
 		$QuickSearch, // 0 to 3
@@ -79,6 +97,7 @@ class DataList {
 		$this->HideTableView = 0;
 		$this->QuickSearch = 0;
 		$this->AllowCSV = 0;
+		$this->AllowAdminShowSQL = 0;
 		$this->CSVSeparator = ',';
 
 		$this->AllowDVNavigation = true;
@@ -104,6 +123,7 @@ class DataList {
 
 	function Render() {
 		$adminConfig = config('adminConfig');
+		$tvShown = $dvShown = false;
 
 		$FiltersPerGroup = 4;
 
@@ -136,6 +156,13 @@ class DataList {
 		$deselect_x = Request::val('deselect_x');
 		$addNew_x = Request::val('addNew_x');
 		$dvprint_x = Request::val('dvprint_x');
+
+		// records per page: if user-provided and > 0, use it, else use default
+		$defaultRPP = $this->RecordsPerPage;
+		$userRPP = intval(Request::val('RecordsPerPage'));
+		$appliedRecordsPerPage = ($userRPP > 0 ? $userRPP : $defaultRPP);
+		$this->RecordsPerPage = $appliedRecordsPerPage;
+
 		$DisplayRecords = (in_array(Request::val('DisplayRecords'), ['user', 'group']) ? Request::val('DisplayRecords') : 'all');
 		list($this->FilterAnd, $this->FilterField, $this->FilterOperator, $this->FilterValue) = $this->validate_filters($_REQUEST, $FiltersPerGroup);
 		$record_selector = [];
@@ -146,7 +173,7 @@ class DataList {
 
 		$setSelectedIDPreviousPage = $setSelectedIDNextPage = $previousRecordDV = $nextRecordDV = null;
 
-		if($SelectedID && !$Embedded && $this->AllowDVNavigation) {
+		if($SelectedID /*&& !$Embedded*/ && $this->AllowDVNavigation) {
 			$setSelectedIDPreviousPage = !empty(Request::val('setSelectedIDPreviousPage'));
 			$setSelectedIDNextPage = !empty(Request::val('setSelectedIDNextPage')) && !$setSelectedIDPreviousPage;
 			$previousRecordDV = !empty(Request::val('previousRecordDV')) && !$setSelectedIDPreviousPage && !$setSelectedIDNextPage;
@@ -178,6 +205,7 @@ class DataList {
 		if($this->Permissions['edit'] || $this->Permissions['delete']) {
 			$this->AllowSelection = 1;
 		} elseif(!$this->AllowSelection) {
+			$this->AllowPrintingDV = 0;
 			$SelectedID = '';
 			$PrintDV = '';
 		}
@@ -263,14 +291,23 @@ class DataList {
 				/* if designer specified a redirect-after-insert url */
 				$url .= (strpos($url, '?') !== false ? '&' : '?') . $insert_status;
 				$url .= (strpos($url, $this->ScriptFileName) !== false ? "&{$filtersGET}" : '');
-				$url = str_replace("#ID#", urlencode($SelectedID), $url);
+				$url = str_replace(
+					"#ID#",
+					urlencode($SelectedID),
+					$url
+				);
 			} else {
 				/* if no redirect-after-insert url, use default */
 				$url = "{$this->ScriptFileName}?{$insert_status}&{$filtersGET}";
 
-				/* if DV and TV in same page, select new record */
-				if(!$this->SeparateDV) $url .= '&SelectedID=' . urlencode($SelectedID);
+				// if user has view access
+				// select new record
+				if($this->Permissions['view'])
+					$url .= '&SelectedID=' . urlencode($SelectedID);
 			}
+
+			// append browser window id to url
+			$url .= (strpos($url, '?') === false ? '?' : '&') .  WindowMessages::windowIdQuery();
 
 			@header('Location: ' . $url);
 			$this->HTML .= "<META HTTP-EQUIV=\"Refresh\" CONTENT=\"0;url=" . $url ."\">";
@@ -333,6 +370,10 @@ class DataList {
 			$filtersGET = substr($filtersGET, 1); // remove initial &
 
 			$redirectUrl = $this->ScriptFileName . '?SelectedID=' . urlencode($SelectedID) . '&' . $filtersGET . '&' . $update_status;
+
+			// append browser window id to url
+			$redirectUrl .= (strpos($redirectUrl, '?') === false ? '?' : '&') .  WindowMessages::windowIdQuery();
+
 			@header("Location: $redirectUrl");
 			$this->HTML .= '<META HTTP-EQUIV="Refresh" CONTENT="0;url='.$redirectUrl.'">';
 			return;
@@ -626,7 +667,7 @@ class DataList {
 			}
 			// end of table view navigation code
 
-			if($SelectedID && $RecordCount && !$Embedded && $this->AllowDVNavigation) {
+			if($SelectedID && $RecordCount /*&& !$Embedded*/ && $this->AllowDVNavigation) {
 				// in DV, if user is navigating to prev record, 
 				// and current one is first record in page,
 				// navigate to previous page (unless this is the first page)
@@ -642,11 +683,11 @@ class DataList {
 				}
 			}
 
-			$tvRecords = $this->getTVRevords($FirstRecord);
+			$tvRecords = $this->getTVRecords($FirstRecord);
 			$fieldCountTV = count($this->QueryFieldsTV);
 			$indexOfSelectedID = null;
 
-			if($SelectedID && count($tvRecords) && !$Embedded) {
+			if($SelectedID && count($tvRecords) /*&& !$Embedded*/) {
 				if($setSelectedIDPreviousPage)
 					// set SelectedID to pk of last item in $tvRecords
 					$indexOfSelectedID = count($tvRecords) - 1;
@@ -685,7 +726,7 @@ class DataList {
 			if($current_view == 'DV' && !$Embedded) {
 				$this->HTML .= '<div class="page-header">';
 					$this->HTML .= '<h1>';
-						$this->HTML .= '<a style="text-decoration: none; color: inherit;" href="' . $this->TableName . '_view.php"><img src="' . $this->TableIcon . '"> ' . $this->TableTitle . '</a>';
+						$this->HTML .= '<a style="text-decoration: none; color: inherit;" href="' . $this->TableName . '_view.php?' . WindowMessages::windowIdQuery() . '"><img src="' . $this->TableIcon . '"> ' . $this->TableTitle . '</a>';
 						/* show add new button if user can insert and there is a selected record */
 						if($SelectedID && $this->Permissions['insert'] && $this->SeparateDV && $this->AllowInsert) {
 							$this->HTML .= ' <button type="submit" id="addNew" name="addNew_x" value="1" class="btn btn-success"><i class="glyphicon glyphicon-plus-sign"></i> ' . $this->translation['Add New'] . '</button>';
@@ -776,7 +817,7 @@ class DataList {
 						$this->HTML .= '<h1>';
 							$this->HTML .= '<div class="row">';
 								$this->HTML .= '<div class="col-sm-8">';
-									$this->HTML .= '<a style="text-decoration: none; color: inherit;" href="' . $this->TableName . '_view.php"><img src="' . $this->TableIcon . '"> ' . $this->TableTitle . '</a>';
+									$this->HTML .= '<a style="text-decoration: none; color: inherit;" href="' . $this->TableName . '_view.php?' . WindowMessages::windowIdQuery() . '"><img src="' . $this->TableIcon . '"> ' . $this->TableTitle . '</a>';
 									/* show add new button if user can insert and there is a selected record */
 									if($SelectedID && $this->Permissions['insert'] && !$this->SeparateDV && $this->AllowInsert) {
 										$this->HTML .= ' <button type="submit" id="addNew" name="addNew_x" value="1" class="btn btn-success"><i class="glyphicon glyphicon-plus-sign"></i> ' . $this->translation['Add New'] . '</button>';
@@ -801,10 +842,10 @@ class DataList {
 						$this->HTML .= $this->tv_tools();
 						$this->HTML .= '<p></p>';
 					$this->HTML .= '</div>';
-
-					$this->HTML .= '<div class="row"><div data-table="' . $this->TableName . '" class="table-' . $this->TableName . ' table_view col-xs-12 ' . $this->TVClasses . '">';
-					$tvRowNeedsClosing = true;
 				}
+
+				$this->HTML .= '<div class="row"><div data-table="' . $this->TableName . '" class="table-' . $this->TableName . ' table_view col-xs-12 ' . $this->TVClasses . '">';
+				$tvRowNeedsClosing = true;
 
 				if($Print_x != '') {
 					/* fix top margin for print-preview */
@@ -821,7 +862,12 @@ class DataList {
 			}
 
 			// begin table and display table title
-			if(!$this->HideTableView && !($dvprint_x && $this->AllowSelection && $SelectedID) && !$PrintDV && !$Embedded) {
+			if(!$this->HideTableView && !($dvprint_x && $this->AllowSelection && $SelectedID) && !$PrintDV && !($Embedded && $delete_x)) {
+				if(getLoggedAdmin() && $this->AllowAdminShowSQL) {
+					$this->HTML .= '<button type="button" class="sql-query-copier btn btn-link btn-xs hidden">' . $this->translation['click to copy'] . '</button>';
+					$this->HTML .= '<pre class="sql-query-container hidden vspace-lg" title="' . html_attr($this->translation['click to copy']) . '">' . $this->getTVQuery($FirstRecord) . '</pre>';
+				}
+
 				$this->HTML .= '<div class="table-responsive"><table data-tablename="' . $this->TableName . '" class="table table-striped table-bordered table-hover">';
 
 				$this->HTML .= '<thead><tr>';
@@ -857,9 +903,11 @@ class DataList {
 				$forceHeaderWidth = false;
 				if($rowTemplate == '' || $this->ShowTableHeader) {
 					for($i = 0; $i < count($this->ColCaption); $i++) {
+						$sort1 = $sort2 = $filterHint = $extraAttributes = $extraHint = '';
+						$extraClasses = "{$this->TableName}-{$this->ColFieldName[$i]}";
+
 						/* Sorting icon and link */
-						$sort1 = $sort2 = $filterHint = '';
-						if($this->AllowSorting == 1) {
+						if($this->AllowSorting == 1 && $this->ColNumber[$i] != -1) {
 							if($current_view != 'TVP') {
 								$sort1 = "<a href=\"{$this->ScriptFileName}?SortDirection=asc&SortField=".($this->ColNumber[$i])."\" onClick=\"$resetSelection document.myform.NoDV.value=1; document.myform.SortDirection.value='asc'; document.myform.SortField.value = '".($this->ColNumber[$i])."'; document.myform.submit(); return false;\" class=\"TableHeader\">";
 								$sort2 = "</a>";
@@ -874,7 +922,7 @@ class DataList {
 						}
 
 						/* Filtering icon and hint */
-						if($this->AllowFilters && is_array($this->FilterField)) {
+						if($this->AllowFilters && is_array($this->FilterField) && $this->ColNumber[$i] != -1) {
 							// check to see if there is any filter applied on the current field
 							if(isset($this->ccffv[$i]) && in_array($this->ccffv[$i], $this->FilterField)) {
 								// render filter icon
@@ -882,7 +930,18 @@ class DataList {
 							}
 						}
 
-						$this->HTML .= "\t<th class=\"{$this->TableName}-{$this->ColFieldName[$i]}\" " . ($forceHeaderWidth ? ' style="width: ' . ($this->ColWidth[$i] ? $this->ColWidth[$i] : 100) . 'px;"' : '') . ">{$sort1}{$this->ColCaption[$i]}{$sort2}{$filterHint}</th>\n";
+						/* handle child info column header */
+						if($this->ColNumber[$i] == -1) {
+							list($childTable, $lookupField) = @explode('.', trim($this->ColFieldName[$i], '%'));
+							$extraClasses = "child-{$childTable}-{$lookupField} child-records-info";
+							$extraAttributes = " data-table=\"{$childTable}\" data-lookup-field=\"{$lookupField}\"";
+							$extraHint = ' <button class="btn-link update-children-count" type="button" title="' . $this->translation['update'] . '"><i class="glyphicon glyphicon-refresh text-muted"></i></button>';
+						}
+
+						$this->HTML .= "\t<th class=\"$extraClasses\" " . 
+							$extraAttributes .
+							($forceHeaderWidth ? ' style="width: ' . ($this->ColWidth[$i] ? $this->ColWidth[$i] : 100) . 'px;"' : '') . 
+							">{$sort1}{$this->ColCaption[$i]}{$sort2}{$filterHint}{$extraHint}</th>\n";
 					}
 				} elseif($current_view != 'TVP') {
 					// Display a Sort by drop down
@@ -892,6 +951,7 @@ class DataList {
 					if($this->AllowSorting == 1) {
 						$sortCombo = new Combo;
 						for($i = 0; $i < count($this->ColCaption); $i++) {
+							if($this->ColNumber[$i] == -1) continue; // skip child info columns
 							$sortCombo->ListItem[] = $this->ColCaption[$i];
 							$sortCombo->ListData[] = $this->ColNumber[$i];
 						}
@@ -1014,65 +1074,21 @@ class DataList {
 					$pagesMenu = '';
 					if($RecordCount > $this->RecordsPerPage) {
 						$pagesMenuId = "{$this->TableName}_pagesMenu";
-						$pagesMenu = $this->translation['go to page'] . ' <select style="width: 90%; max-width: 8em;" class="input-sm ltr form-control" id="' . $pagesMenuId . '" onChange="document.myform.writeAttribute(\'novalidate\', \'novalidate\'); document.myform.NoDV.value = 1; document.myform.FirstRecord.value = (this.value * ' . $this->RecordsPerPage . '+1); document.myform.submit();">';
-						$pagesMenu .= '</select>';
 
-						$pagesMenu .= '<script>';
-						$pagesMenu .= 'var lastPage = ' . (ceil($RecordCount / $this->RecordsPerPage) - 1) . ';';
-						$pagesMenu .= 'var currentPage = ' . (($FirstRecord - 1) / $this->RecordsPerPage) . ';';
-						$pagesMenu .= 'var pagesMenu = document.getElementById("' . $pagesMenuId . '");';
-						$pagesMenu .= 'var lump = ' . datalist_max_page_lump . ';';
-
-						$pagesMenu .= 'if(lastPage <= lump * 3) {';
-						$pagesMenu .= '  addPageNumbers(0, lastPage);';
-						$pagesMenu .= '} else {';
-						$pagesMenu .= '  addPageNumbers(0, lump - 1);';
-						$pagesMenu .= '  if(currentPage < lump) addPageNumbers(lump, currentPage + lump / 2);';
-						$pagesMenu .= '  if(currentPage >= lump && currentPage < (lastPage - lump)) {';
-						$pagesMenu .= '    addPageNumbers(';
-						$pagesMenu .= '      Math.max(currentPage - lump / 2, lump),';
-						$pagesMenu .= '      Math.min(currentPage + lump / 2, lastPage - lump - 1)';
-						$pagesMenu .= '    );';
-						$pagesMenu .= '  }';
-						$pagesMenu .= '  if(currentPage >= (lastPage - lump)) addPageNumbers(currentPage - lump / 2, lastPage - lump - 1);';
-						$pagesMenu .= '  addPageNumbers(lastPage - lump, lastPage);';
-						$pagesMenu .= '}';
-
-						$pagesMenu .= 'function addPageNumbers(fromPage, toPage) {';
-						$pagesMenu .= '  var ellipsesIndex = 0;';
-						$pagesMenu .= '  if(fromPage > toPage) return;';
-						$pagesMenu .= '  if(fromPage > 0) {';
-						$pagesMenu .= '    if(pagesMenu.options[pagesMenu.options.length - 1].text != fromPage) {';
-						$pagesMenu .= '      ellipsesIndex = pagesMenu.options.length;';
-						$pagesMenu .= '      fromPage--;';
-						$pagesMenu .= '    }';
-						$pagesMenu .= '  }';
-						$pagesMenu .= '  for(i = fromPage; i <= toPage; i++) {';
-						$pagesMenu .= '    var option = document.createElement("option");';
-						$pagesMenu .= '    option.text = (i + 1);';
-						$pagesMenu .= '    option.value = i;';
-						$pagesMenu .= '    if(i == currentPage) { option.selected = "selected"; }';
-						$pagesMenu .= '    try{';
-						$pagesMenu .= '      /* for IE earlier than version 8 */';
-						$pagesMenu .= '      pagesMenu.add(option, pagesMenu.options[null]);';
-						$pagesMenu .= '    }catch(e) {';
-						$pagesMenu .= '      pagesMenu.add(option, null);';
-						$pagesMenu .= '    }';
-						$pagesMenu .= '  }';
-						$pagesMenu .= '  if(ellipsesIndex > 0) {';
-						$pagesMenu .= '    pagesMenu.options[ellipsesIndex].text = " ... ";';
-						$pagesMenu .= '  }';
-						$pagesMenu .= '}';
-						$pagesMenu .= '</script>';
+						$pagesMenu  = "<label class=\"hidden-xs\" for=\"$pagesMenuId\">{$this->translation['go to page']}</label>"; 
+						$pagesMenu .= '<select class="input-sm ltr form-control hspacer-md text-center" id="' . $pagesMenuId . '"></select>';
+						$pagesMenu .= '<script>$j(() => {' .
+								'AppGini.preparePagesMenu(' .
+									"{$this->RecordsPerPage}, " .
+									"'{$pagesMenuId}', " .
+									(ceil($RecordCount / $this->RecordsPerPage) - 1) . ', ' . // last page
+									(($FirstRecord - 1) / $this->RecordsPerPage) . ', ' . // current page
+									datalist_max_page_lump . // lump
+								');' .
+							'});</script>';
 					}
 
 					$this->HTML .= "\n\t";
-
-					if($i) { // 1 or more records found
-						$this->HTML .= "<tfoot><tr><td colspan=".(count($this->ColCaption)+1).'>';
-							$this->HTML .= $this->translation['records x to y of z'];
-						$this->HTML .= '</td></tr></tfoot>';
-					}
 
 					if(!$i) { // no records found
 						$this->HTML .= "<tfoot><tr><td colspan=".(count($this->ColCaption)+1).'>';
@@ -1080,41 +1096,54 @@ class DataList {
 								$this->HTML .= '<i class="glyphicon glyphicon-warning-sign"></i> ';
 								$this->HTML .= $this->translation['No matches found!'];
 							$this->HTML .= '</div>';
+							$this->HTML .= '<style> .record-count-info { display: none; } </style>';
 						$this->HTML .= '</td></tr></tfoot>';
 					}
 
 				} else { // TVP
-					if($i)  $this->HTML .= "\n\t<tfoot><tr><td colspan=".(count($this->ColCaption) + 1). '>' . $this->translation['records x to y of z'] . '</td></tr></tfoot>';
-					if(!$i) $this->HTML .= "\n\t<tfoot><tr><td colspan=".(count($this->ColCaption) + 1). '>' . $this->translation['No matches found!'] . '</td></tr></tfoot>';
+					if(!$i) $this->HTML .= "\n\t<tfoot><tr><td colspan=" . (count($this->ColCaption) + 1) . '>' . $this->translation['No matches found!'] . '</td></tr></tfoot>';
 				}
 
-				$this->HTML = str_replace("<FirstRecord>", '<span class="first-record locale-int">' . $FirstRecord . '</span>', $this->HTML);
-				$this->HTML = str_replace("<LastRecord>", '<span class="last-record locale-int">' . $i . '</span>', $this->HTML);
-				$this->HTML = str_replace("<RecordCount>", '<span class="record-count locale-int">' . $RecordCount . '</span>', $this->HTML);
 				$tvShown = true;
 
 				$this->HTML .= "</table></div>\n";
 
-				/* highlight quick search matches */
-				if(strlen($SearchString) && $RecordCount) $this->HTML .= '<script>$j(function() { $j(".table-responsive td:not([colspan])").mark("' . html_attr($SearchString) . '", { className: "text-bold bg-warning", diacritics: false }); })</script>';
+				// records count TV/TVP footer
+				$recordCountHtml = str_replace(
+					['<FirstRecord>', '<LastRecord>', '<RecordCount>'],
+					[
+						'<span class="first-record locale-int">' . $FirstRecord . '</span>',
+						'<span class="last-record locale-int">' . $i . '</span>',
+						'<span class="record-count locale-int">' . $RecordCount . '</span>'
+					],
+					$this->translation['records x to y of z']
+				);
+				$this->HTML .= '<div class="bspacer-lg record-count-info">' . $recordCountHtml . '</div>';
 
-				if($Print_x == '' && $i) { // TV
-					$this->HTML .= '<div class="row pagination-section">';
-						$this->HTML .= '<div class="col-xs-4 col-md-3 col-lg-2 vspacer-lg">';
-							if($FirstRecord > 1) $this->HTML .= '<button onClick="' . $resetSelection . ' document.myform.NoDV.value = 1; return true;" type="submit" name="Previous_x" id="Previous" value="1" class="btn btn-default btn-block"><i class="glyphicon glyphicon-chevron-left"></i> <span class="hidden-xs">' . $this->translation['Previous'] . '</span></button>';
+				// records count and pagination in TV if 1 or more records found
+				if($i && $Print_x == '') {
+
+					$this->HTML .= '<div class="pagination-section">';
+						$this->HTML .= '<div class="">';
+						if($FirstRecord > 1) 
+							$this->HTML .= '<button onClick="' . $resetSelection . ' document.myform.NoDV.value = 1; return true;" type="submit" name="Previous_x" id="Previous" value="1" class="btn btn-default btn-block" style="max-width: 15em;"><i class="glyphicon glyphicon-chevron-left rtl-mirror"></i> <span class="hidden-xs">' . $this->translation['Previous'] . '</span></button>';
 						$this->HTML .= '</div>';
 
-						$this->HTML .= '<div class="col-xs-4 col-md-4 col-lg-2 col-md-offset-1 col-lg-offset-3 text-center vspacer-lg form-inline">';
-							$this->HTML .= $pagesMenu;
-						$this->HTML .= '</div>';
+						$this->HTML .= '<div class="form-inline">' . $pagesMenu . '</div>';
 
-						$this->HTML .= '<div class="col-xs-4 col-md-3 col-lg-2 col-md-offset-1 col-lg-offset-3 text-right vspacer-lg">';
-							if($i < $RecordCount) $this->HTML .= '<button onClick="'.$resetSelection.' document.myform.NoDV.value = 1; return true;" type="submit" name="Next_x" id="Next" value="1" class="btn btn-default btn-block"><span class="hidden-xs">' . $this->translation['Next'] . '</span> <i class="glyphicon glyphicon-chevron-right"></i></button>';
+						$this->HTML .= '<div>';
+						if($i < $RecordCount)
+							$this->HTML .= '<button onClick="' . $resetSelection . ' document.myform.NoDV.value = 1; return true;" type="submit" name="Next_x" id="Next" value="1" class="btn btn-default btn-block" style="max-width: 15em; margin-left: auto;"><span class="hidden-xs">' . $this->translation['Next'] . '</span> <i class="glyphicon glyphicon-chevron-right rtl-mirror"></i></button>';
 						$this->HTML .= '</div>';
 					$this->HTML .= '</div>';
 				}
 
+				/* highlight quick search matches */
+				if(strlen($SearchString) && $RecordCount) $this->HTML .= '<script>$j(function() { $j(".table_view .table-responsive td").mark("' . html_attr($SearchString) . '", { className: "text-bold bg-warning", diacritics: false }); })</script>';
+
 				$this->HTML .= '</div>'; // end of div.table_view
+
+				$this->HTML .= $this->hideInaccessibleChildrenFromTV();
 			}
 			/* that marks the end of the TV table */
 		}
@@ -1136,7 +1165,9 @@ class DataList {
 		$this->HTML .= '<input name="FirstRecord" type="hidden" value="' . $FirstRecord . '">';
 		$this->HTML .= '<input name="NoDV" type="hidden" value="">';
 		$this->HTML .= '<input name="PrintDV" type="hidden" value="">';
-		if($this->QuickSearch && !strpos($this->HTML, 'SearchString')) $this->HTML .= '<input name="SearchString" type="hidden" value="' . html_attr($SearchString) . '">';
+		$this->HTML .= '<input name="RecordsPerPage" type="hidden" value="' . $appliedRecordsPerPage . '">';
+		if(/*$this->QuickSearch &&*/ !strpos($this->HTML, ' name="SearchString"')) $this->HTML .= '<input name="SearchString" type="hidden" value="' . html_attr($SearchString) . '">';
+
 		// hidden variables: filters ...
 		$FiltersCode = '';
 		for($i = 1; $i <= (datalist_filters_count * $FiltersPerGroup); $i++) { // Number of filters allowed
@@ -1167,7 +1198,7 @@ class DataList {
 					$this->TemplateDVP
 				]);
 
-				if($this->Permissions['view'] && $this->AllowDVNavigation && !$Embedded) $this->addDVNavigation(
+				if($this->Permissions['view'] && $this->AllowDVNavigation /*&& !$Embedded*/) $this->addDVNavigation(
 					$dvCode,
 					$SelectedID,
 					// array of PKs of TV records
@@ -1357,7 +1388,7 @@ class DataList {
 			$empty_group = true;
 
 			for($j = $i; $j < ($i + $FiltersPerGroup); $j++) {
-				if($ffield[$j]) $empty_group = false;
+				if(!empty($ffield[$j])) $empty_group = false;
 			}
 
 			if($empty_group) {
@@ -1384,7 +1415,7 @@ class DataList {
 			</div>
 		<?php } ?>
 
-		<div class="pull-right flip btn-group vspacer-md hspacer-md tv-tools">
+		<div class="pull-right flip btn-group vspacer-md hspacer-md tv-tools" style="display: none;">
 			<button title="<?php echo html_attr($this->translation['previous column']); ?>" type="button" class="btn btn-default tv-scroll" onclick="AppGini.TVScroll().less()"><i class="glyphicon glyphicon-step-backward"></i></button>
 			<button title="<?php echo html_attr($this->translation['next column']); ?>" type="button" class="btn btn-default tv-scroll" onclick="AppGini.TVScroll().more()"><i class="glyphicon glyphicon-step-forward"></i></button>
 		</div>
@@ -1420,6 +1451,8 @@ class DataList {
 				var col_cookie = function(col_class, val) {
 					if(col_class === undefined) return true;
 					if(val !== undefined && val !== true && val !== false) val = true;
+
+					col_class = col_class.split(/\s+/).shift(); // take only first class
 
 					var cn = 'columns-' + location.pathname.split(/\//).pop().split(/\./).shift(); // cookie name
 					var c = JSON.parse(localStorage.getItem(cn)) || {};
@@ -1478,7 +1511,7 @@ class DataList {
 					/* ignore the record selector and sum columns */
 					if(th.find('#select_all_records').length > 0 || th.hasClass('sum')) return;
 
-					var col_class = th.attr('class');
+					var col_class = th.attr('class').split(/\s+/).shift(); // take only first class
 					var label = $j.trim(th.text());
 
 					/* Add a toggler for the column in the #toggle-columns section */
@@ -1541,6 +1574,10 @@ class DataList {
 		if($this->AllowCSV)
 			$buttons .= '<button onClick="document.myform.NoDV.value = 1; <%%RESET_SELECTION%%> return true;" type="submit" name="CSV_x" id="CSV" value="1" class="btn btn-default"><i class="glyphicon glyphicon-download-alt"></i> <%%TRANSLATION(CSV)%%></button>';
 
+		// if admin and AllowAdminShowSQL, display SQL icon
+		if(getLoggedAdmin() && $this->AllowAdminShowSQL)
+			$buttons .= '<button onClick="$j(\'.sql-query-container, .sql-query-copier\').toggleClass(\'hidden\'); $j(this).toggleClass(\'active\');" type="button" id="ShowSQL" class="btn btn-default"><i class="glyphicon glyphicon-eye-open"></i> <%%TRANSLATION(SQL)%%></button>';
+
 		// display Filter icon
 		if($this->AllowFilters)
 			$buttons .= '<button onClick="document.myform.NoDV.value = 1; <%%RESET_SELECTION%%> return true;" type="submit" name="Filter_x" id="Filter" value="1" class="btn btn-default"><i class="glyphicon glyphicon-filter"></i> <%%TRANSLATION(filter)%%></button>';
@@ -1585,7 +1622,7 @@ class DataList {
 		]);
 	}
 
-	function getTVRevords($first) {
+	function getTVQuery($first) {
 		// TV/TVP query
 		$tvFields = $this->QueryFieldsTV;
 
@@ -1593,9 +1630,12 @@ class DataList {
 		if($this->PrimaryKey)
 			$tvFields["COALESCE($this->PrimaryKey)"] = str_replace('`', '', $this->PrimaryKey);
 
-		$tvQuery = $this->buildQuery($tvFields, $first - 1, $this->RecordsPerPage);
+		return $this->buildQuery($tvFields, $first - 1, $this->RecordsPerPage);
+	}
+
+	function getTVRecords($first) {
 		//$eo = ['silentErrors' => true];
-		$result = sql($tvQuery, $eo);
+		$result = sql($this->getTVQuery($first), $eo);
 		$tvRecords = [];
 		if(!$result) return $tvRecords;
 		while($row = db_fetch_array($result)) $tvRecords[] = $row;
@@ -1612,6 +1652,7 @@ class DataList {
 
 		// hook: table_csv
 		if(function_exists($this->TableName.'_csv')) {
+			$mi = getMemberInfo();
 			$args = [];
 			$mq = call_user_func_array($this->TableName . '_csv', [$csvQuery, $mi, &$args]);
 			$csvQuery = ($mq ? $mq : $csvQuery);
@@ -1808,15 +1849,79 @@ class DataList {
 
 	private function isValidFilter($index) {
 		return (
-			($this->FilterAnd[$index] != '' || $index == 1)
-			&& $this->FilterField[$index] != ''
-			&& $this->FilterOperator[$index] != ''
+			(!empty($this->FilterAnd[$index]) || $index == 1)
+			&& !empty($this->FilterField[$index])
+			&& !empty($this->FilterOperator[$index])
 			&& (
-				strlen($this->FilterValue[$index])
+				!empty($this->FilterValue[$index])
 				|| strpos($this->FilterOperator[$index], 'empty') !== false
+				|| $this->FilterValue[$index] === '0'
 			)
-		);     
+		);
 	}
 
+	private function hideInaccessibleChildrenFromTV() {
+		$childTables = getChildTables($this->TableName);
+
+		// we only need insert and view permissions
+		$jsChildTables = [];
+		foreach($childTables as $tn => $lufs) { // lufs = lookup fields
+			$perm = getTablePermissions($tn);
+
+			foreach($lufs as $lfn => $lf) {
+				$jsChildTables[$tn][$lfn] = [
+					// TODO: combine these with AppGini options from $this
+					'insert' => !empty($perm['insert']), 
+					'view' => !empty($perm['view']),
+					'label' => $lf['tab-label'],
+				];
+			}
+		}
+
+		ob_start(); ?>
+		<script>
+			$j(() => {
+				const childTables = <?php echo json_encode($jsChildTables, JSON_PRETTY_PRINT); ?>;
+				const processed = [];
+
+				// loop through .child-records-info elements,
+				// retrieving child table name and lookup field name
+				// and apply permissions accordingly
+				$j('.child-records-info').each(function() {
+					const el = $j(this);
+					const tn = el.data('table');
+					const lfn = el.data('lookup-field');
+
+					// if already processed, skip
+					if(processed.indexOf(tn + lfn) > -1) return;
+
+					// mark as processed
+					processed.push(tn + lfn);
+
+					const allEls = $j(`.child-records-info[data-table="${tn}"][data-lookup-field="${lfn}"]`);
+
+					if(!childTables[tn] || !childTables[tn][lfn]) {
+						// remove all els having the same tn and lfn
+						allEls.remove();
+						return;
+					}
+
+					// if no insert nor view, remove all els having the same tn and lfn
+					if(!childTables[tn][lfn].insert && !childTables[tn][lfn].view) {
+						allEls.remove();
+						return;
+					}
+
+					// if no insert, hide .new-child from all els
+					allEls.find('.new-child').css('visibility', childTables[tn][lfn].insert ? 'visible' : 'hidden');
+
+					// if no view, hide .children-count from all els
+					allEls.find('.children-count').css('visibility', childTables[tn][lfn].view ? 'visible' : 'hidden');
+				});
+			})
+		</script>
+		<?php
+		return ob_get_clean();
+	}
 }
 

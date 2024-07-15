@@ -34,6 +34,8 @@
 	}
 
 	function db_fetch_array($res) {
+		if(!$res) return false;
+
 		switch(DATABASE) {
 			case 'mysql':
 				return @mysql_fetch_array($res);
@@ -43,6 +45,8 @@
 	}
 
 	function db_fetch_assoc($res) {
+		if(!$res) return false;
+
 		switch(DATABASE) {
 			case 'mysql':
 				return @mysql_fetch_assoc($res);
@@ -52,6 +56,8 @@
 	}
 
 	function db_fetch_row($res) {
+		if(!$res) return false;
+
 		switch(DATABASE) {
 			case 'mysql':
 				return @mysql_fetch_row($res);
@@ -79,7 +85,8 @@
 	}
 
 	function db_affected_rows($link = NULL) {
-		if(!$link) $link = db_link();
+		if(!$link && !$link = db_link()) return false;
+
 		switch(DATABASE) {
 			case 'mysql':
 				return mysql_affected_rows($link);
@@ -89,7 +96,8 @@
 	}
 
 	function db_query($query, $link = NULL) {
-		if(!$link) $link = db_link();
+		if(!$link && !$link = db_link()) return false;
+
 		switch(DATABASE) {
 			case 'mysql':
 				return @mysql_query($query, $link);
@@ -99,7 +107,8 @@
 	}
 
 	function db_insert_id($link = NULL) {
-		if(!$link) $link = db_link();
+		if(!$link && !$link = db_link()) return false;
+
 		switch(DATABASE) {
 			case 'mysql':
 				return mysql_insert_id($link);
@@ -174,7 +183,8 @@
 	}
 
 	function db_errno($link = NULL, $mysqli_connect = false) {
-		if(!$link) $link = db_link();
+		if(!$link && !$link = db_link()) return false;
+
 		switch(DATABASE) {
 			case 'mysql':
 				return mysql_errno($link);
@@ -185,7 +195,8 @@
 	}
 
 	function db_error($link = NULL, $mysqli_connect = false) {
-		if(!$link) $link = db_link();
+		if(!$link && !$link = db_link()) return false;
+
 		switch(DATABASE) {
 			case 'mysql':
 				return mysql_error($link);
