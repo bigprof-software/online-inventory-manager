@@ -46,7 +46,7 @@
 		if(!$j('.row.table_links').length) return;
 
 		// create a grid of 2:1 on md+ screens
-		$j('.container > a.collapser').eq(0)
+		$j('.container > .homepage-links > a.collapser').eq(0)
 			.before(
 				'<div class="row">' +
 					'<div class="homepage-collapse-links col-md-9"></div>' +
@@ -55,7 +55,7 @@
 			);
 
 		// move table links to the left section of the grid
-		$j('.container > a.collapser').each(function() {
+		$j('.container > .homepage-links > a.collapser').each(function() {
 			var link = $j(this);
 			var content = link.next();
 			link.appendTo('.homepage-collapse-links');
