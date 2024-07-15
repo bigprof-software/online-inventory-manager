@@ -2,7 +2,7 @@
 app/config.php
 app/config.bak.php
 app/file-uploader.php
-app/admin/backups/*.sql
+app/admin/backups
 
 # ignore files generated dynamically by AppGini application
 app/setup.md5
