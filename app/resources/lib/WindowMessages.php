@@ -47,8 +47,14 @@
  */
 
 class WindowMessages {
+	// public value to determine min age of messages in seconds before they are removed from the session
+	public static $minAge = 0.2;
+
 	private static function getExistingOrNewWindowId() {
 		$widFromRequest = Request::val('browser_window_id');
+		// strip all non-alphanumeric characters
+		$widFromRequest = preg_replace('/[^a-z0-9]/i', '', $widFromRequest);
+
 		if($widFromRequest) return $widFromRequest;
 
 		// abort if ajax request
@@ -77,13 +83,13 @@ class WindowMessages {
 	 */
 	public static function injectWindowId($buffer) {
 		$wid = self::getExistingOrNewWindowId();
-		
+
 		// if buffer already contains window id, do nothing
 		if(strpos($buffer, 'name="browser_window_id" value="' . $wid) !== false) return $buffer;
 
 		// inject window id into the buffer right after each <form> tag, as a hidden field
 		$matches = 0;
-		$buffer = preg_replace('/(<form[^>]*>)/i', '$1<input type="hidden" name="browser_window_id" value="' . $wid . '" />', $buffer, -1, $matches);
+		$buffer = preg_replace('/(<form[^>]*>)/i', '$1<input type="hidden" name="browser_window_id" value="' . $wid . '">', $buffer, -1, $matches);
 
 		return $buffer;
 	}
@@ -98,9 +104,10 @@ class WindowMessages {
 	 */
 	public static function add($msg, $classes = 'alert alert-info') {
 		$wid = self::getExistingOrNewWindowId();
+		$timestamp = microtime(true);
 
 		// add message to the session
-		if($wid) $_SESSION['window_messages'][$wid][] = compact('msg', 'classes');
+		if($wid) $_SESSION['window_messages'][$wid][] = compact('msg', 'classes', 'timestamp');
 	}
 
 	/**
@@ -122,7 +129,7 @@ class WindowMessages {
 	}
 
 	/**
-	 * Gets all messages specific to the current browser window from the session, and clears them from the session.
+	 * Gets all messages specific to the current browser window from the session, and clears them from the session if they are older than `WindowMessages::$minAge`.
 	 * 
 	 * @return array An array of messages.
 	 * 
@@ -140,9 +147,13 @@ class WindowMessages {
 
 		// get messages from the session
 		$messages = $_SESSION['window_messages'][$wid] ?? [];
+		if(count($messages) === 0) return $messages;
 
-		// clear messages from the session
-		$_SESSION['window_messages'][$wid] = [];
+		// clear messages from the session if they are older than $minAge
+		$now = microtime(true);
+		foreach($_SESSION['window_messages'][$wid] as $i => $message) {
+			if($now - $message['timestamp'] > self::$minAge) unset($_SESSION['window_messages'][$wid][$i]);
+		}
 
 		return $messages;
 	}
@@ -199,7 +210,7 @@ class WindowMessages {
 	 */
 	public static function includeWindowId() {
 		$wid = self::getExistingOrNewWindowId();
-		return '<input type="hidden" name="browser_window_id" value="' . $wid . '" />';
+		return '<input type="hidden" name="browser_window_id" value="' . $wid . '">';
 	}
 
 	/**

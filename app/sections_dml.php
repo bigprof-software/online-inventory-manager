@@ -10,53 +10,23 @@ function sections_insert(&$error_message = '') {
 
 	// mm: can member insert record?
 	$arrPerm = getTablePermissions('sections');
-	if(!$arrPerm['insert']) return false;
+	if(!$arrPerm['insert']) {
+		$error_message = $Translation['no insert permission'];
+		return false;
+	}
 
 	$data = [
 		'section' => Request::val('section', ''),
 	];
 
-
-	// hook: sections_before_insert
-	if(function_exists('sections_before_insert')) {
-		$args = [];
-		if(!sections_before_insert($data, getMemberInfo(), $args)) {
-			if(isset($args['error_message'])) $error_message = $args['error_message'];
-			return false;
-		}
-	}
-
-	$error = '';
-	// set empty fields to NULL
-	$data = array_map(function($v) { return ($v === '' ? NULL : $v); }, $data);
-	insert('sections', backtick_keys_once($data), $error);
-	if($error) {
-		$error_message = $error;
-		return false;
-	}
-
-	$recID = db_insert_id(db_link());
-
-	update_calc_fields('sections', $recID, calculated_fields()['sections']);
-
-	// hook: sections_after_insert
-	if(function_exists('sections_after_insert')) {
-		$res = sql("SELECT * FROM `sections` WHERE `id`='" . makeSafe($recID, false) . "' LIMIT 1", $eo);
-		if($row = db_fetch_assoc($res)) {
-			$data = array_map('makeSafe', $row);
-		}
-		$data['selectedID'] = makeSafe($recID, false);
-		$args = [];
-		if(!sections_after_insert($data, getMemberInfo(), $args)) { return $recID; }
-	}
-
-	// mm: save ownership data
 	// record owner is current user
 	$recordOwner = getLoggedMemberID();
-	set_record_owner('sections', $recID, $recordOwner);
+
+	$recID = tableInsert('sections', $data, $recordOwner, $error_message);
 
 	// if this record is a copy of another record, copy children if applicable
-	if(strlen(Request::val('SelectedID'))) sections_copy_children($recID, Request::val('SelectedID'));
+	if(strlen(Request::val('SelectedID')) && $recID !== false)
+		sections_copy_children($recID, Request::val('SelectedID'));
 
 	return $recID;
 }
@@ -66,6 +36,8 @@ function sections_copy_children($destination_id, $source_id) {
 	$requests = []; // array of curl handlers for launching insert requests
 	$eo = ['silentErrors' => true];
 	$safe_sid = makeSafe($source_id);
+	$currentUsername = getLoggedMemberID();
+	$errorMessage = '';
 
 	// launch requests, asynchronously
 	curl_batch($requests);
@@ -88,7 +60,7 @@ function sections_delete($selected_id, $AllowDeleteOfParents = false, $skipCheck
 			return $Translation['Couldn\'t delete this record'] . (
 				!empty($args['error_message']) ?
 					'<div class="text-bold">' . strip_tags($args['error_message']) . '</div>'
-					: '' 
+					: ''
 			);
 	}
 
@@ -97,17 +69,18 @@ function sections_delete($selected_id, $AllowDeleteOfParents = false, $skipCheck
 	$id = db_fetch_row($res);
 	$rires = sql("SELECT COUNT(1) FROM `transactions` WHERE `section`='" . makeSafe($id[0]) . "'", $eo);
 	$rirow = db_fetch_row($rires);
+	$childrenATag = '<a class="alert-link" href="transactions_view.php?filterer_section=' . urlencode($id[0]) . '">%s</a>';
 	if($rirow[0] && !$AllowDeleteOfParents && !$skipChecks) {
 		$RetMsg = $Translation["couldn't delete"];
-		$RetMsg = str_replace('<RelatedRecords>', $rirow[0], $RetMsg);
-		$RetMsg = str_replace('<TableName>', 'transactions', $RetMsg);
+		$RetMsg = str_replace('<RelatedRecords>', sprintf($childrenATag, $rirow[0]), $RetMsg);
+		$RetMsg = str_replace(['[<TableName>]', '<TableName>'], sprintf($childrenATag, 'transactions'), $RetMsg);
 		return $RetMsg;
 	} elseif($rirow[0] && $AllowDeleteOfParents && !$skipChecks) {
 		$RetMsg = $Translation['confirm delete'];
-		$RetMsg = str_replace('<RelatedRecords>', $rirow[0], $RetMsg);
-		$RetMsg = str_replace('<TableName>', 'transactions', $RetMsg);
-		$RetMsg = str_replace('<Delete>', '<input type="button" class="btn btn-danger" value="' . html_attr($Translation['yes']) . '" onClick="window.location = \'sections_view.php?SelectedID=' . urlencode($selected_id) . '&delete_x=1&confirmed=1&csrf_token=' . urlencode(csrf_token(false, true)) . '\';">', $RetMsg);
-		$RetMsg = str_replace('<Cancel>', '<input type="button" class="btn btn-success" value="' . html_attr($Translation[ 'no']) . '" onClick="window.location = \'sections_view.php?SelectedID=' . urlencode($selected_id) . '\';">', $RetMsg);
+		$RetMsg = str_replace('<RelatedRecords>', sprintf($childrenATag, $rirow[0]), $RetMsg);
+		$RetMsg = str_replace(['[<TableName>]', '<TableName>'], sprintf($childrenATag, 'transactions'), $RetMsg);
+		$RetMsg = str_replace('<Delete>', '<input type="button" class="btn btn-danger" value="' . html_attr($Translation['yes']) . '" onClick="window.location = `sections_view.php?SelectedID=' . urlencode($selected_id) . '&delete_x=1&confirmed=1&csrf_token=' . urlencode(csrf_token(false, true)) . (Request::val('Embedded') ? '&Embedded=1' : '') . '`;">', $RetMsg);
+		$RetMsg = str_replace('<Cancel>', '<input type="button" class="btn btn-success" value="' . html_attr($Translation[ 'no']) . '" onClick="window.location = `sections_view.php?SelectedID=' . urlencode($selected_id) . (Request::val('Embedded') ? '&Embedded=1' : '') . '`;">', $RetMsg);
 		return $RetMsg;
 	}
 
@@ -157,9 +130,9 @@ function sections_update(&$selected_id, &$error_message = '') {
 	}
 
 	if(!update(
-		'sections', 
-		backtick_keys_once($set), 
-		['`id`' => $selected_id], 
+		'sections',
+		backtick_keys_once($set),
+		['`id`' => $selected_id],
 		$error_message
 	)) {
 		echo $error_message;
@@ -168,14 +141,11 @@ function sections_update(&$selected_id, &$error_message = '') {
 	}
 
 
-	$eo = ['silentErrors' => true];
-
 	update_calc_fields('sections', $data['selectedID'], calculated_fields()['sections']);
 
 	// hook: sections_after_update
 	if(function_exists('sections_after_update')) {
-		$res = sql("SELECT * FROM `sections` WHERE `id`='{$data['selectedID']}' LIMIT 1", $eo);
-		if($row = db_fetch_assoc($res)) $data = array_map('makeSafe', $row);
+		if($row = getRecord('sections', $data['selectedID'])) $data = array_map('makeSafe', $row);
 
 		$data['selectedID'] = $data['id'];
 		$args = ['old_data' => $old_data];
@@ -228,8 +198,7 @@ function sections_form($selectedId = '', $allowUpdate = true, $allowInsert = tru
 	$rnd1 = ($dvprint ? rand(1000000, 9999999) : '');
 
 	if($hasSelectedId) {
-		$res = sql("SELECT * FROM `sections` WHERE `id`='" . makeSafe($selectedId) . "'", $eo);
-		if(!($row = db_fetch_array($res))) {
+		if(!($row = getRecord('sections', $selectedId))) {
 			return error_message($Translation['No records found'], 'sections_view.php', false);
 		}
 		$urow = $row; /* unsanitized data */
@@ -246,7 +215,7 @@ function sections_form($selectedId = '', $allowUpdate = true, $allowInsert = tru
 	<script>
 		// initial lookup values
 
-		jQuery(function() {
+		$j(function() {
 			setTimeout(function() {
 			}, 50); /* we need to slightly delay client-side execution of the above code to allow AppGini.ajaxCache to work */
 		});
@@ -273,9 +242,9 @@ function sections_form($selectedId = '', $allowUpdate = true, $allowInsert = tru
 	$templateCode = str_replace('<%%EMBEDDED%%>', (Request::val('Embedded') ? 'Embedded=1' : ''), $templateCode);
 	// process buttons
 	if($showSaveNew) {
-		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-success" id="insert" name="insert_x" value="1" onclick="return sections_validateData();"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save New'] . '</button>', $templateCode);
+		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-success" id="insert" name="insert_x" value="1"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save New'] . '</button>', $templateCode);
 	} elseif($showSaveAsCopy) {
-		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="insert" name="insert_x" value="1" onclick="return sections_validateData();"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save As Copy'] . '</button>', $templateCode);
+		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="insert" name="insert_x" value="1"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save As Copy'] . '</button>', $templateCode);
 	} else {
 		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '', $templateCode);
 	}
@@ -284,13 +253,13 @@ function sections_form($selectedId = '', $allowUpdate = true, $allowInsert = tru
 	if(Request::val('Embedded')) {
 		$backAction = 'AppGini.closeParentModal(); return false;';
 	} else {
-		$backAction = '$j(\'form\').eq(0).attr(\'novalidate\', \'novalidate\'); document.myform.reset(); return true;';
+		$backAction = 'return true;';
 	}
 
 	if($hasSelectedId) {
-		if(!Request::val('Embedded')) $templateCode = str_replace('<%%DVPRINT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="dvprint" name="dvprint_x" value="1" onclick="$j(\'form\').eq(0).prop(\'novalidate\', true); document.myform.reset(); return true;" title="' . html_attr($Translation['Print Preview']) . '"><i class="glyphicon glyphicon-print"></i> ' . $Translation['Print Preview'] . '</button>', $templateCode);
+		if(!Request::val('Embedded')) $templateCode = str_replace('<%%DVPRINT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="dvprint" name="dvprint_x" value="1" title="' . html_attr($Translation['Print Preview']) . '"><i class="glyphicon glyphicon-print"></i> ' . $Translation['Print Preview'] . '</button>', $templateCode);
 		if($allowUpdate)
-			$templateCode = str_replace('<%%UPDATE_BUTTON%%>', '<button type="submit" class="btn btn-success btn-lg" id="update" name="update_x" value="1" onclick="return sections_validateData();" title="' . html_attr($Translation['Save Changes']) . '"><i class="glyphicon glyphicon-ok"></i> ' . $Translation['Save Changes'] . '</button>', $templateCode);
+			$templateCode = str_replace('<%%UPDATE_BUTTON%%>', '<button type="submit" class="btn btn-success btn-lg" id="update" name="update_x" value="1" title="' . html_attr($Translation['Save Changes']) . '"><i class="glyphicon glyphicon-ok"></i> ' . $Translation['Save Changes'] . '</button>', $templateCode);
 		else
 			$templateCode = str_replace('<%%UPDATE_BUTTON%%>', '', $templateCode);
 
@@ -314,14 +283,14 @@ function sections_form($selectedId = '', $allowUpdate = true, $allowInsert = tru
 			$templateCode = str_replace('<%%DESELECT_BUTTON%%>', '', $templateCode);
 		elseif($separateDV)
 			$templateCode = str_replace(
-				'<%%DESELECT_BUTTON%%>', 
+				'<%%DESELECT_BUTTON%%>',
 				'<button
-					type="submit" 
-					class="btn btn-default" 
-					id="deselect" 
-					name="deselect_x" 
-					value="1" 
-					onclick="' . $backAction . '" 
+					type="submit"
+					class="btn btn-default"
+					id="deselect"
+					name="deselect_x"
+					value="1"
+					onclick="' . $backAction . '"
 					title="' . html_attr($Translation['Back']) . '">
 						<i class="glyphicon glyphicon-chevron-left"></i> ' .
 						$Translation['Back'] .
@@ -335,14 +304,14 @@ function sections_form($selectedId = '', $allowUpdate = true, $allowInsert = tru
 	// set records to read only if user can't insert new records and can't edit current record
 	if(!$fieldsAreEditable) {
 		$jsReadOnly = '';
-		$jsReadOnly .= "\tjQuery('#section').replaceWith('<div class=\"form-control-static\" id=\"section\">' + (jQuery('#section').val() || '') + '</div>');\n";
-		$jsReadOnly .= "\tjQuery('.select2-container').hide();\n";
+		$jsReadOnly .= "\t\$j('#section').replaceWith('<div class=\"form-control-static\" id=\"section\">' + (\$j('#section').val() || '') + '</div>');\n";
+		$jsReadOnly .= "\t\$j('.select2-container').hide();\n";
 
 		$noUploads = true;
 	} else {
 		// temporarily disable form change handler till time and datetime pickers are enabled
-		$jsEditable = "\tjQuery('form').eq(0).data('already_changed', true);";
-		$jsEditable .= "\tjQuery('form').eq(0).data('already_changed', false);"; // re-enable form change handler
+		$jsEditable = "\t\$j('form').eq(0).data('already_changed', true);";
+		$jsEditable .= "\t\$j('form').eq(0).data('already_changed', false);"; // re-enable form change handler
 	}
 
 	// process combos

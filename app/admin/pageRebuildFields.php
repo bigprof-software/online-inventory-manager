@@ -49,12 +49,13 @@
 
 		/* if default is CURRENT_TIMESTAMP, remove single quotes */
 		$def = preg_replace("/default\s*'CURRENT_TIMESTAMP'/i", "default current_timestamp", $def);
+		$def = preg_replace("/default\s*'CURRENT_TIMESTAMP\(\)'/i", "default current_timestamp", $def);
 
 		return trim($def);
 	}
 
 	/**
-	 *  @brief creates/fixes given field according to given schema
+	 *  creates/fixes given field according to given schema
 	 *  @return integer: 0 = error, 1 = field updated, 2 = field created
 	 */
 	function fix_field($fix_table, $fix_field, $schema, &$qry) {

@@ -2,25 +2,31 @@
 	if(function_exists('set_headers')) { set_headers(); }
 	if(!defined('PREPEND_PATH')) define('PREPEND_PATH', '../');
 	$adminConfig = config('adminConfig');
-	?><!DOCTYPE html>
+
+	$theme = getUserTheme();
+	$bootstrap3d = '';
+	if($theme == 'bootstrap' && BOOTSTRAP_3D_EFFECTS) {
+		$bootstrap3d = '<link rel="stylesheet" href="' . PREPEND_PATH . 'resources/initializr/css/bootstrap-theme.css" media="screen">' . "\n";
+	}
+?><!DOCTYPE html>
 <html class="no-js">
 	<head>
 		<meta charset="<?php echo datalist_db_encoding; ?>">
-		<meta name="description" content="">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta name="description" content="">
 		<title><?php echo APP_TITLE . ' | ' . $Translation['admin area'] . (isset($GLOBALS['page_title']) ? html_attr(" | {$GLOBALS['page_title']}") : ''); ?></title>
 
 		<link id="browser_favicon" rel="shortcut icon" href="<?php echo PREPEND_PATH; ?>resources/table_icons/administrator.png">
 
-		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>resources/initializr/css/readable.css">
+		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>resources/initializr/css/<?php echo $theme; ?>.css">
+		<?php echo $bootstrap3d; ?>
 		<link rel="stylesheet" href="<?php echo PREPEND_PATH; ?>dynamic.css?<?php echo filemtime( __DIR__ . '/../dynamic.css'); ?>">
 
 		<script src="<?php echo PREPEND_PATH; ?>resources/jquery/js/<?php echo latest_jquery(); ?>"></script>
 		<script>var $j = jQuery.noConflict(); var AppGini = AppGini || {};</script>
 		<script src="toolTips.js"></script>
 		<script src="<?php echo PREPEND_PATH; ?>resources/initializr/js/vendor/bootstrap.min.js"></script>
-		<script src="<?php echo PREPEND_PATH; ?>resources/lightbox/js/prototype.js"></script>
-		<script src="<?php echo PREPEND_PATH; ?>resources/lightbox/js/scriptaculous.js?load=effects"></script>
 		<script>
 
 			// VALIDATION FUNCTIONS FOR VARIOUS PAGES
@@ -155,7 +161,7 @@
 		</style>
 	</head>
 	<body>
-	<div class="admin-area container theme-readable">
+	<div class="admin-area container theme-<?php echo $theme; ?> <?php echo getUserThemeCompact(); ?><?php echo BOOTSTRAP_3D_EFFECTS ? ' theme-3d' : ''; ?>">
 
 		<!-- top navbar -->
 		<nav class="navbar navbar-inverse navbar-fixed-top" role="navigation">

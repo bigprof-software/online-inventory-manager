@@ -10,7 +10,10 @@ function items_insert(&$error_message = '') {
 
 	// mm: can member insert record?
 	$arrPerm = getTablePermissions('items');
-	if(!$arrPerm['insert']) return false;
+	if(!$arrPerm['insert']) {
+		$error_message = $Translation['no insert permission'];
+		return false;
+	}
 
 	$data = [
 		'item' => Request::val('item', ''),
@@ -18,47 +21,14 @@ function items_insert(&$error_message = '') {
 		'category' => Request::lookup('category', ''),
 	];
 
-
-	// hook: items_before_insert
-	if(function_exists('items_before_insert')) {
-		$args = [];
-		if(!items_before_insert($data, getMemberInfo(), $args)) {
-			if(isset($args['error_message'])) $error_message = $args['error_message'];
-			return false;
-		}
-	}
-
-	$error = '';
-	// set empty fields to NULL
-	$data = array_map(function($v) { return ($v === '' ? NULL : $v); }, $data);
-	insert('items', backtick_keys_once($data), $error);
-	if($error) {
-		$error_message = $error;
-		return false;
-	}
-
-	$recID = db_insert_id(db_link());
-
-	update_calc_fields('items', $recID, calculated_fields()['items']);
-
-	// hook: items_after_insert
-	if(function_exists('items_after_insert')) {
-		$res = sql("SELECT * FROM `items` WHERE `id`='" . makeSafe($recID, false) . "' LIMIT 1", $eo);
-		if($row = db_fetch_assoc($res)) {
-			$data = array_map('makeSafe', $row);
-		}
-		$data['selectedID'] = makeSafe($recID, false);
-		$args = [];
-		if(!items_after_insert($data, getMemberInfo(), $args)) { return $recID; }
-	}
-
-	// mm: save ownership data
 	// record owner is current user
 	$recordOwner = getLoggedMemberID();
-	set_record_owner('items', $recID, $recordOwner);
+
+	$recID = tableInsert('items', $data, $recordOwner, $error_message);
 
 	// if this record is a copy of another record, copy children if applicable
-	if(strlen(Request::val('SelectedID'))) items_copy_children($recID, Request::val('SelectedID'));
+	if(strlen(Request::val('SelectedID')) && $recID !== false)
+		items_copy_children($recID, Request::val('SelectedID'));
 
 	return $recID;
 }
@@ -68,6 +38,8 @@ function items_copy_children($destination_id, $source_id) {
 	$requests = []; // array of curl handlers for launching insert requests
 	$eo = ['silentErrors' => true];
 	$safe_sid = makeSafe($source_id);
+	$currentUsername = getLoggedMemberID();
+	$errorMessage = '';
 
 	// launch requests, asynchronously
 	curl_batch($requests);
@@ -90,7 +62,7 @@ function items_delete($selected_id, $AllowDeleteOfParents = false, $skipChecks =
 			return $Translation['Couldn\'t delete this record'] . (
 				!empty($args['error_message']) ?
 					'<div class="text-bold">' . strip_tags($args['error_message']) . '</div>'
-					: '' 
+					: ''
 			);
 	}
 
@@ -99,17 +71,18 @@ function items_delete($selected_id, $AllowDeleteOfParents = false, $skipChecks =
 	$id = db_fetch_row($res);
 	$rires = sql("SELECT COUNT(1) FROM `transactions` WHERE `item`='" . makeSafe($id[0]) . "'", $eo);
 	$rirow = db_fetch_row($rires);
+	$childrenATag = '<a class="alert-link" href="transactions_view.php?filterer_item=' . urlencode($id[0]) . '">%s</a>';
 	if($rirow[0] && !$AllowDeleteOfParents && !$skipChecks) {
 		$RetMsg = $Translation["couldn't delete"];
-		$RetMsg = str_replace('<RelatedRecords>', $rirow[0], $RetMsg);
-		$RetMsg = str_replace('<TableName>', 'transactions', $RetMsg);
+		$RetMsg = str_replace('<RelatedRecords>', sprintf($childrenATag, $rirow[0]), $RetMsg);
+		$RetMsg = str_replace(['[<TableName>]', '<TableName>'], sprintf($childrenATag, 'transactions'), $RetMsg);
 		return $RetMsg;
 	} elseif($rirow[0] && $AllowDeleteOfParents && !$skipChecks) {
 		$RetMsg = $Translation['confirm delete'];
-		$RetMsg = str_replace('<RelatedRecords>', $rirow[0], $RetMsg);
-		$RetMsg = str_replace('<TableName>', 'transactions', $RetMsg);
-		$RetMsg = str_replace('<Delete>', '<input type="button" class="btn btn-danger" value="' . html_attr($Translation['yes']) . '" onClick="window.location = \'items_view.php?SelectedID=' . urlencode($selected_id) . '&delete_x=1&confirmed=1&csrf_token=' . urlencode(csrf_token(false, true)) . '\';">', $RetMsg);
-		$RetMsg = str_replace('<Cancel>', '<input type="button" class="btn btn-success" value="' . html_attr($Translation[ 'no']) . '" onClick="window.location = \'items_view.php?SelectedID=' . urlencode($selected_id) . '\';">', $RetMsg);
+		$RetMsg = str_replace('<RelatedRecords>', sprintf($childrenATag, $rirow[0]), $RetMsg);
+		$RetMsg = str_replace(['[<TableName>]', '<TableName>'], sprintf($childrenATag, 'transactions'), $RetMsg);
+		$RetMsg = str_replace('<Delete>', '<input type="button" class="btn btn-danger" value="' . html_attr($Translation['yes']) . '" onClick="window.location = `items_view.php?SelectedID=' . urlencode($selected_id) . '&delete_x=1&confirmed=1&csrf_token=' . urlencode(csrf_token(false, true)) . (Request::val('Embedded') ? '&Embedded=1' : '') . '`;">', $RetMsg);
+		$RetMsg = str_replace('<Cancel>', '<input type="button" class="btn btn-success" value="' . html_attr($Translation[ 'no']) . '" onClick="window.location = `items_view.php?SelectedID=' . urlencode($selected_id) . (Request::val('Embedded') ? '&Embedded=1' : '') . '`;">', $RetMsg);
 		return $RetMsg;
 	}
 
@@ -118,17 +91,18 @@ function items_delete($selected_id, $AllowDeleteOfParents = false, $skipChecks =
 	$id = db_fetch_row($res);
 	$rires = sql("SELECT COUNT(1) FROM `batches` WHERE `item`='" . makeSafe($id[0]) . "'", $eo);
 	$rirow = db_fetch_row($rires);
+	$childrenATag = '<a class="alert-link" href="batches_view.php?filterer_item=' . urlencode($id[0]) . '">%s</a>';
 	if($rirow[0] && !$AllowDeleteOfParents && !$skipChecks) {
 		$RetMsg = $Translation["couldn't delete"];
-		$RetMsg = str_replace('<RelatedRecords>', $rirow[0], $RetMsg);
-		$RetMsg = str_replace('<TableName>', 'batches', $RetMsg);
+		$RetMsg = str_replace('<RelatedRecords>', sprintf($childrenATag, $rirow[0]), $RetMsg);
+		$RetMsg = str_replace(['[<TableName>]', '<TableName>'], sprintf($childrenATag, 'batches'), $RetMsg);
 		return $RetMsg;
 	} elseif($rirow[0] && $AllowDeleteOfParents && !$skipChecks) {
 		$RetMsg = $Translation['confirm delete'];
-		$RetMsg = str_replace('<RelatedRecords>', $rirow[0], $RetMsg);
-		$RetMsg = str_replace('<TableName>', 'batches', $RetMsg);
-		$RetMsg = str_replace('<Delete>', '<input type="button" class="btn btn-danger" value="' . html_attr($Translation['yes']) . '" onClick="window.location = \'items_view.php?SelectedID=' . urlencode($selected_id) . '&delete_x=1&confirmed=1&csrf_token=' . urlencode(csrf_token(false, true)) . '\';">', $RetMsg);
-		$RetMsg = str_replace('<Cancel>', '<input type="button" class="btn btn-success" value="' . html_attr($Translation[ 'no']) . '" onClick="window.location = \'items_view.php?SelectedID=' . urlencode($selected_id) . '\';">', $RetMsg);
+		$RetMsg = str_replace('<RelatedRecords>', sprintf($childrenATag, $rirow[0]), $RetMsg);
+		$RetMsg = str_replace(['[<TableName>]', '<TableName>'], sprintf($childrenATag, 'batches'), $RetMsg);
+		$RetMsg = str_replace('<Delete>', '<input type="button" class="btn btn-danger" value="' . html_attr($Translation['yes']) . '" onClick="window.location = `items_view.php?SelectedID=' . urlencode($selected_id) . '&delete_x=1&confirmed=1&csrf_token=' . urlencode(csrf_token(false, true)) . (Request::val('Embedded') ? '&Embedded=1' : '') . '`;">', $RetMsg);
+		$RetMsg = str_replace('<Cancel>', '<input type="button" class="btn btn-success" value="' . html_attr($Translation[ 'no']) . '" onClick="window.location = `items_view.php?SelectedID=' . urlencode($selected_id) . (Request::val('Embedded') ? '&Embedded=1' : '') . '`;">', $RetMsg);
 		return $RetMsg;
 	}
 
@@ -180,9 +154,9 @@ function items_update(&$selected_id, &$error_message = '') {
 	}
 
 	if(!update(
-		'items', 
-		backtick_keys_once($set), 
-		['`id`' => $selected_id], 
+		'items',
+		backtick_keys_once($set),
+		['`id`' => $selected_id],
 		$error_message
 	)) {
 		echo $error_message;
@@ -191,14 +165,11 @@ function items_update(&$selected_id, &$error_message = '') {
 	}
 
 
-	$eo = ['silentErrors' => true];
-
 	update_calc_fields('items', $data['selectedID'], calculated_fields()['items']);
 
 	// hook: items_after_update
 	if(function_exists('items_after_update')) {
-		$res = sql("SELECT * FROM `items` WHERE `id`='{$data['selectedID']}' LIMIT 1", $eo);
-		if($row = db_fetch_assoc($res)) $data = array_map('makeSafe', $row);
+		if($row = getRecord('items', $data['selectedID'])) $data = array_map('makeSafe', $row);
 
 		$data['selectedID'] = $data['id'];
 		$args = ['old_data' => $old_data];
@@ -254,8 +225,7 @@ function items_form($selectedId = '', $allowUpdate = true, $allowInsert = true, 
 	$combo_category = new DataCombo;
 
 	if($hasSelectedId) {
-		$res = sql("SELECT * FROM `items` WHERE `id`='" . makeSafe($selectedId) . "'", $eo);
-		if(!($row = db_fetch_array($res))) {
+		if(!($row = getRecord('items', $selectedId))) {
 			return error_message($Translation['No records found'], 'items_view.php', false);
 		}
 		$combo_category->SelectedData = $row['category'];
@@ -277,7 +247,7 @@ function items_form($selectedId = '', $allowUpdate = true, $allowInsert = true, 
 		// initial lookup values
 		AppGini.current_category__RAND__ = { text: "", value: "<?php echo addslashes($hasSelectedId ? $urow['category'] : htmlspecialchars($filterer_category, ENT_QUOTES)); ?>"};
 
-		jQuery(function() {
+		$j(function() {
 			setTimeout(function() {
 				if(typeof(category_reload__RAND__) == 'function') category_reload__RAND__();
 			}, 50); /* we need to slightly delay client-side execution of the above code to allow AppGini.ajaxCache to work */
@@ -382,9 +352,9 @@ function items_form($selectedId = '', $allowUpdate = true, $allowInsert = true, 
 	$templateCode = str_replace('<%%EMBEDDED%%>', (Request::val('Embedded') ? 'Embedded=1' : ''), $templateCode);
 	// process buttons
 	if($showSaveNew) {
-		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-success" id="insert" name="insert_x" value="1" onclick="return items_validateData();"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save New'] . '</button>', $templateCode);
+		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-success" id="insert" name="insert_x" value="1"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save New'] . '</button>', $templateCode);
 	} elseif($showSaveAsCopy) {
-		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="insert" name="insert_x" value="1" onclick="return items_validateData();"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save As Copy'] . '</button>', $templateCode);
+		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="insert" name="insert_x" value="1"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save As Copy'] . '</button>', $templateCode);
 	} else {
 		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '', $templateCode);
 	}
@@ -393,13 +363,13 @@ function items_form($selectedId = '', $allowUpdate = true, $allowInsert = true, 
 	if(Request::val('Embedded')) {
 		$backAction = 'AppGini.closeParentModal(); return false;';
 	} else {
-		$backAction = '$j(\'form\').eq(0).attr(\'novalidate\', \'novalidate\'); document.myform.reset(); return true;';
+		$backAction = 'return true;';
 	}
 
 	if($hasSelectedId) {
-		if(!Request::val('Embedded')) $templateCode = str_replace('<%%DVPRINT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="dvprint" name="dvprint_x" value="1" onclick="$j(\'form\').eq(0).prop(\'novalidate\', true); document.myform.reset(); return true;" title="' . html_attr($Translation['Print Preview']) . '"><i class="glyphicon glyphicon-print"></i> ' . $Translation['Print Preview'] . '</button>', $templateCode);
+		if(!Request::val('Embedded')) $templateCode = str_replace('<%%DVPRINT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="dvprint" name="dvprint_x" value="1" title="' . html_attr($Translation['Print Preview']) . '"><i class="glyphicon glyphicon-print"></i> ' . $Translation['Print Preview'] . '</button>', $templateCode);
 		if($allowUpdate)
-			$templateCode = str_replace('<%%UPDATE_BUTTON%%>', '<button type="submit" class="btn btn-success btn-lg" id="update" name="update_x" value="1" onclick="return items_validateData();" title="' . html_attr($Translation['Save Changes']) . '"><i class="glyphicon glyphicon-ok"></i> ' . $Translation['Save Changes'] . '</button>', $templateCode);
+			$templateCode = str_replace('<%%UPDATE_BUTTON%%>', '<button type="submit" class="btn btn-success btn-lg" id="update" name="update_x" value="1" title="' . html_attr($Translation['Save Changes']) . '"><i class="glyphicon glyphicon-ok"></i> ' . $Translation['Save Changes'] . '</button>', $templateCode);
 		else
 			$templateCode = str_replace('<%%UPDATE_BUTTON%%>', '', $templateCode);
 
@@ -423,14 +393,14 @@ function items_form($selectedId = '', $allowUpdate = true, $allowInsert = true, 
 			$templateCode = str_replace('<%%DESELECT_BUTTON%%>', '', $templateCode);
 		elseif($separateDV)
 			$templateCode = str_replace(
-				'<%%DESELECT_BUTTON%%>', 
+				'<%%DESELECT_BUTTON%%>',
 				'<button
-					type="submit" 
-					class="btn btn-default" 
-					id="deselect" 
-					name="deselect_x" 
-					value="1" 
-					onclick="' . $backAction . '" 
+					type="submit"
+					class="btn btn-default"
+					id="deselect"
+					name="deselect_x"
+					value="1"
+					onclick="' . $backAction . '"
 					title="' . html_attr($Translation['Back']) . '">
 						<i class="glyphicon glyphicon-chevron-left"></i> ' .
 						$Translation['Back'] .
@@ -444,17 +414,17 @@ function items_form($selectedId = '', $allowUpdate = true, $allowInsert = true, 
 	// set records to read only if user can't insert new records and can't edit current record
 	if(!$fieldsAreEditable) {
 		$jsReadOnly = '';
-		$jsReadOnly .= "\tjQuery('#item').replaceWith('<div class=\"form-control-static\" id=\"item\">' + (jQuery('#item').val() || '') + '</div>');\n";
-		$jsReadOnly .= "\tjQuery('#code').replaceWith('<div class=\"form-control-static\" id=\"code\">' + (jQuery('#code').val() || '') + '</div>');\n";
-		$jsReadOnly .= "\tjQuery('#category').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
-		$jsReadOnly .= "\tjQuery('#category_caption').prop('disabled', true).css({ color: '#555', backgroundColor: 'white' });\n";
-		$jsReadOnly .= "\tjQuery('.select2-container').hide();\n";
+		$jsReadOnly .= "\t\$j('#item').replaceWith('<div class=\"form-control-static\" id=\"item\">' + (\$j('#item').val() || '') + '</div>');\n";
+		$jsReadOnly .= "\t\$j('#code').replaceWith('<div class=\"form-control-static\" id=\"code\">' + (\$j('#code').val() || '') + '</div>');\n";
+		$jsReadOnly .= "\t\$j('#category').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
+		$jsReadOnly .= "\t\$j('#category_caption').prop('disabled', true).css({ color: '#555', backgroundColor: 'white' });\n";
+		$jsReadOnly .= "\t\$j('.select2-container').hide();\n";
 
 		$noUploads = true;
 	} else {
 		// temporarily disable form change handler till time and datetime pickers are enabled
-		$jsEditable = "\tjQuery('form').eq(0).data('already_changed', true);";
-		$jsEditable .= "\tjQuery('form').eq(0).data('already_changed', false);"; // re-enable form change handler
+		$jsEditable = "\t\$j('form').eq(0).data('already_changed', true);";
+		$jsEditable .= "\t\$j('form').eq(0).data('already_changed', false);"; // re-enable form change handler
 	}
 
 	// process combos

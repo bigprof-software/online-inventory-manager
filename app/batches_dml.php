@@ -10,7 +10,10 @@ function batches_insert(&$error_message = '') {
 
 	// mm: can member insert record?
 	$arrPerm = getTablePermissions('batches');
-	if(!$arrPerm['insert']) return false;
+	if(!$arrPerm['insert']) {
+		$error_message = $Translation['no insert permission'];
+		return false;
+	}
 
 	$data = [
 		'item' => Request::lookup('item', ''),
@@ -20,47 +23,14 @@ function batches_insert(&$error_message = '') {
 		'expiry_date' => Request::dateComponents('expiry_date', '1'),
 	];
 
-
-	// hook: batches_before_insert
-	if(function_exists('batches_before_insert')) {
-		$args = [];
-		if(!batches_before_insert($data, getMemberInfo(), $args)) {
-			if(isset($args['error_message'])) $error_message = $args['error_message'];
-			return false;
-		}
-	}
-
-	$error = '';
-	// set empty fields to NULL
-	$data = array_map(function($v) { return ($v === '' ? NULL : $v); }, $data);
-	insert('batches', backtick_keys_once($data), $error);
-	if($error) {
-		$error_message = $error;
-		return false;
-	}
-
-	$recID = db_insert_id(db_link());
-
-	update_calc_fields('batches', $recID, calculated_fields()['batches']);
-
-	// hook: batches_after_insert
-	if(function_exists('batches_after_insert')) {
-		$res = sql("SELECT * FROM `batches` WHERE `id`='" . makeSafe($recID, false) . "' LIMIT 1", $eo);
-		if($row = db_fetch_assoc($res)) {
-			$data = array_map('makeSafe', $row);
-		}
-		$data['selectedID'] = makeSafe($recID, false);
-		$args = [];
-		if(!batches_after_insert($data, getMemberInfo(), $args)) { return $recID; }
-	}
-
-	// mm: save ownership data
 	// record owner is current user
 	$recordOwner = getLoggedMemberID();
-	set_record_owner('batches', $recID, $recordOwner);
+
+	$recID = tableInsert('batches', $data, $recordOwner, $error_message);
 
 	// if this record is a copy of another record, copy children if applicable
-	if(strlen(Request::val('SelectedID'))) batches_copy_children($recID, Request::val('SelectedID'));
+	if(strlen(Request::val('SelectedID')) && $recID !== false)
+		batches_copy_children($recID, Request::val('SelectedID'));
 
 	return $recID;
 }
@@ -70,6 +40,8 @@ function batches_copy_children($destination_id, $source_id) {
 	$requests = []; // array of curl handlers for launching insert requests
 	$eo = ['silentErrors' => true];
 	$safe_sid = makeSafe($source_id);
+	$currentUsername = getLoggedMemberID();
+	$errorMessage = '';
 
 	// launch requests, asynchronously
 	curl_batch($requests);
@@ -92,7 +64,7 @@ function batches_delete($selected_id, $AllowDeleteOfParents = false, $skipChecks
 			return $Translation['Couldn\'t delete this record'] . (
 				!empty($args['error_message']) ?
 					'<div class="text-bold">' . strip_tags($args['error_message']) . '</div>'
-					: '' 
+					: ''
 			);
 	}
 
@@ -101,17 +73,18 @@ function batches_delete($selected_id, $AllowDeleteOfParents = false, $skipChecks
 	$id = db_fetch_row($res);
 	$rires = sql("SELECT COUNT(1) FROM `transactions` WHERE `batch`='" . makeSafe($id[0]) . "'", $eo);
 	$rirow = db_fetch_row($rires);
+	$childrenATag = '<a class="alert-link" href="transactions_view.php?filterer_batch=' . urlencode($id[0]) . '">%s</a>';
 	if($rirow[0] && !$AllowDeleteOfParents && !$skipChecks) {
 		$RetMsg = $Translation["couldn't delete"];
-		$RetMsg = str_replace('<RelatedRecords>', $rirow[0], $RetMsg);
-		$RetMsg = str_replace('<TableName>', 'transactions', $RetMsg);
+		$RetMsg = str_replace('<RelatedRecords>', sprintf($childrenATag, $rirow[0]), $RetMsg);
+		$RetMsg = str_replace(['[<TableName>]', '<TableName>'], sprintf($childrenATag, 'transactions'), $RetMsg);
 		return $RetMsg;
 	} elseif($rirow[0] && $AllowDeleteOfParents && !$skipChecks) {
 		$RetMsg = $Translation['confirm delete'];
-		$RetMsg = str_replace('<RelatedRecords>', $rirow[0], $RetMsg);
-		$RetMsg = str_replace('<TableName>', 'transactions', $RetMsg);
-		$RetMsg = str_replace('<Delete>', '<input type="button" class="btn btn-danger" value="' . html_attr($Translation['yes']) . '" onClick="window.location = \'batches_view.php?SelectedID=' . urlencode($selected_id) . '&delete_x=1&confirmed=1&csrf_token=' . urlencode(csrf_token(false, true)) . '\';">', $RetMsg);
-		$RetMsg = str_replace('<Cancel>', '<input type="button" class="btn btn-success" value="' . html_attr($Translation[ 'no']) . '" onClick="window.location = \'batches_view.php?SelectedID=' . urlencode($selected_id) . '\';">', $RetMsg);
+		$RetMsg = str_replace('<RelatedRecords>', sprintf($childrenATag, $rirow[0]), $RetMsg);
+		$RetMsg = str_replace(['[<TableName>]', '<TableName>'], sprintf($childrenATag, 'transactions'), $RetMsg);
+		$RetMsg = str_replace('<Delete>', '<input type="button" class="btn btn-danger" value="' . html_attr($Translation['yes']) . '" onClick="window.location = `batches_view.php?SelectedID=' . urlencode($selected_id) . '&delete_x=1&confirmed=1&csrf_token=' . urlencode(csrf_token(false, true)) . (Request::val('Embedded') ? '&Embedded=1' : '') . '`;">', $RetMsg);
+		$RetMsg = str_replace('<Cancel>', '<input type="button" class="btn btn-success" value="' . html_attr($Translation[ 'no']) . '" onClick="window.location = `batches_view.php?SelectedID=' . urlencode($selected_id) . (Request::val('Embedded') ? '&Embedded=1' : '') . '`;">', $RetMsg);
 		return $RetMsg;
 	}
 
@@ -165,9 +138,9 @@ function batches_update(&$selected_id, &$error_message = '') {
 	}
 
 	if(!update(
-		'batches', 
-		backtick_keys_once($set), 
-		['`id`' => $selected_id], 
+		'batches',
+		backtick_keys_once($set),
+		['`id`' => $selected_id],
 		$error_message
 	)) {
 		echo $error_message;
@@ -176,14 +149,11 @@ function batches_update(&$selected_id, &$error_message = '') {
 	}
 
 
-	$eo = ['silentErrors' => true];
-
 	update_calc_fields('batches', $data['selectedID'], calculated_fields()['batches']);
 
 	// hook: batches_after_update
 	if(function_exists('batches_after_update')) {
-		$res = sql("SELECT * FROM `batches` WHERE `id`='{$data['selectedID']}' LIMIT 1", $eo);
-		if($row = db_fetch_assoc($res)) $data = array_map('makeSafe', $row);
+		if($row = getRecord('batches', $data['selectedID'])) $data = array_map('makeSafe', $row);
 
 		$data['selectedID'] = $data['id'];
 		$args = ['old_data' => $old_data];
@@ -258,8 +228,7 @@ function batches_form($selectedId = '', $allowUpdate = true, $allowInsert = true
 	$combo_expiry_date->NamePrefix = 'expiry_date';
 
 	if($hasSelectedId) {
-		$res = sql("SELECT * FROM `batches` WHERE `id`='" . makeSafe($selectedId) . "'", $eo);
-		if(!($row = db_fetch_array($res))) {
+		if(!($row = getRecord('batches', $selectedId))) {
 			return error_message($Translation['No records found'], 'batches_view.php', false);
 		}
 		$combo_item->SelectedData = $row['item'];
@@ -288,7 +257,7 @@ function batches_form($selectedId = '', $allowUpdate = true, $allowInsert = true
 		AppGini.current_item__RAND__ = { text: "", value: "<?php echo addslashes($hasSelectedId ? $urow['item'] : htmlspecialchars($filterer_item, ENT_QUOTES)); ?>"};
 		AppGini.current_supplier__RAND__ = { text: "", value: "<?php echo addslashes($hasSelectedId ? $urow['supplier'] : htmlspecialchars($filterer_supplier, ENT_QUOTES)); ?>"};
 
-		jQuery(function() {
+		$j(function() {
 			setTimeout(function() {
 				if(typeof(item_reload__RAND__) == 'function') item_reload__RAND__();
 				if(typeof(supplier_reload__RAND__) == 'function') supplier_reload__RAND__();
@@ -471,9 +440,9 @@ function batches_form($selectedId = '', $allowUpdate = true, $allowInsert = true
 	$templateCode = str_replace('<%%EMBEDDED%%>', (Request::val('Embedded') ? 'Embedded=1' : ''), $templateCode);
 	// process buttons
 	if($showSaveNew) {
-		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-success" id="insert" name="insert_x" value="1" onclick="return batches_validateData();"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save New'] . '</button>', $templateCode);
+		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-success" id="insert" name="insert_x" value="1"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save New'] . '</button>', $templateCode);
 	} elseif($showSaveAsCopy) {
-		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="insert" name="insert_x" value="1" onclick="return batches_validateData();"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save As Copy'] . '</button>', $templateCode);
+		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="insert" name="insert_x" value="1"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save As Copy'] . '</button>', $templateCode);
 	} else {
 		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '', $templateCode);
 	}
@@ -482,13 +451,13 @@ function batches_form($selectedId = '', $allowUpdate = true, $allowInsert = true
 	if(Request::val('Embedded')) {
 		$backAction = 'AppGini.closeParentModal(); return false;';
 	} else {
-		$backAction = '$j(\'form\').eq(0).attr(\'novalidate\', \'novalidate\'); document.myform.reset(); return true;';
+		$backAction = 'return true;';
 	}
 
 	if($hasSelectedId) {
-		if(!Request::val('Embedded')) $templateCode = str_replace('<%%DVPRINT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="dvprint" name="dvprint_x" value="1" onclick="$j(\'form\').eq(0).prop(\'novalidate\', true); document.myform.reset(); return true;" title="' . html_attr($Translation['Print Preview']) . '"><i class="glyphicon glyphicon-print"></i> ' . $Translation['Print Preview'] . '</button>', $templateCode);
+		if(!Request::val('Embedded')) $templateCode = str_replace('<%%DVPRINT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="dvprint" name="dvprint_x" value="1" title="' . html_attr($Translation['Print Preview']) . '"><i class="glyphicon glyphicon-print"></i> ' . $Translation['Print Preview'] . '</button>', $templateCode);
 		if($allowUpdate)
-			$templateCode = str_replace('<%%UPDATE_BUTTON%%>', '<button type="submit" class="btn btn-success btn-lg" id="update" name="update_x" value="1" onclick="return batches_validateData();" title="' . html_attr($Translation['Save Changes']) . '"><i class="glyphicon glyphicon-ok"></i> ' . $Translation['Save Changes'] . '</button>', $templateCode);
+			$templateCode = str_replace('<%%UPDATE_BUTTON%%>', '<button type="submit" class="btn btn-success btn-lg" id="update" name="update_x" value="1" title="' . html_attr($Translation['Save Changes']) . '"><i class="glyphicon glyphicon-ok"></i> ' . $Translation['Save Changes'] . '</button>', $templateCode);
 		else
 			$templateCode = str_replace('<%%UPDATE_BUTTON%%>', '', $templateCode);
 
@@ -512,14 +481,14 @@ function batches_form($selectedId = '', $allowUpdate = true, $allowInsert = true
 			$templateCode = str_replace('<%%DESELECT_BUTTON%%>', '', $templateCode);
 		elseif($separateDV)
 			$templateCode = str_replace(
-				'<%%DESELECT_BUTTON%%>', 
+				'<%%DESELECT_BUTTON%%>',
 				'<button
-					type="submit" 
-					class="btn btn-default" 
-					id="deselect" 
-					name="deselect_x" 
-					value="1" 
-					onclick="' . $backAction . '" 
+					type="submit"
+					class="btn btn-default"
+					id="deselect"
+					name="deselect_x"
+					value="1"
+					onclick="' . $backAction . '"
 					title="' . html_attr($Translation['Back']) . '">
 						<i class="glyphicon glyphicon-chevron-left"></i> ' .
 						$Translation['Back'] .
@@ -533,22 +502,22 @@ function batches_form($selectedId = '', $allowUpdate = true, $allowInsert = true
 	// set records to read only if user can't insert new records and can't edit current record
 	if(!$fieldsAreEditable) {
 		$jsReadOnly = '';
-		$jsReadOnly .= "\tjQuery('#item').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
-		$jsReadOnly .= "\tjQuery('#item_caption').prop('disabled', true).css({ color: '#555', backgroundColor: 'white' });\n";
-		$jsReadOnly .= "\tjQuery('#supplier').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
-		$jsReadOnly .= "\tjQuery('#supplier_caption').prop('disabled', true).css({ color: '#555', backgroundColor: 'white' });\n";
-		$jsReadOnly .= "\tjQuery('#batch_no').replaceWith('<div class=\"form-control-static\" id=\"batch_no\">' + (jQuery('#batch_no').val() || '') + '</div>');\n";
-		$jsReadOnly .= "\tjQuery('#manufacturing_date').prop('readonly', true);\n";
-		$jsReadOnly .= "\tjQuery('#manufacturing_dateDay, #manufacturing_dateMonth, #manufacturing_dateYear').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
-		$jsReadOnly .= "\tjQuery('#expiry_date').prop('readonly', true);\n";
-		$jsReadOnly .= "\tjQuery('#expiry_dateDay, #expiry_dateMonth, #expiry_dateYear').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
-		$jsReadOnly .= "\tjQuery('.select2-container').hide();\n";
+		$jsReadOnly .= "\t\$j('#item').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
+		$jsReadOnly .= "\t\$j('#item_caption').prop('disabled', true).css({ color: '#555', backgroundColor: 'white' });\n";
+		$jsReadOnly .= "\t\$j('#supplier').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
+		$jsReadOnly .= "\t\$j('#supplier_caption').prop('disabled', true).css({ color: '#555', backgroundColor: 'white' });\n";
+		$jsReadOnly .= "\t\$j('#batch_no').replaceWith('<div class=\"form-control-static\" id=\"batch_no\">' + (\$j('#batch_no').val() || '') + '</div>');\n";
+		$jsReadOnly .= "\t\$j('#manufacturing_date').prop('readonly', true);\n";
+		$jsReadOnly .= "\t\$j('#manufacturing_dateDay, #manufacturing_dateMonth, #manufacturing_dateYear').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
+		$jsReadOnly .= "\t\$j('#expiry_date').prop('readonly', true);\n";
+		$jsReadOnly .= "\t\$j('#expiry_dateDay, #expiry_dateMonth, #expiry_dateYear').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
+		$jsReadOnly .= "\t\$j('.select2-container').hide();\n";
 
 		$noUploads = true;
 	} else {
 		// temporarily disable form change handler till time and datetime pickers are enabled
-		$jsEditable = "\tjQuery('form').eq(0).data('already_changed', true);";
-		$jsEditable .= "\tjQuery('form').eq(0).data('already_changed', false);"; // re-enable form change handler
+		$jsEditable = "\t\$j('form').eq(0).data('already_changed', true);";
+		$jsEditable .= "\t\$j('form').eq(0).data('already_changed', false);"; // re-enable form change handler
 	}
 
 	// process combos
@@ -559,16 +528,16 @@ function batches_form($selectedId = '', $allowUpdate = true, $allowInsert = true
 	$templateCode = str_replace('<%%COMBOTEXT(supplier)%%>', $combo_supplier->MatchText, $templateCode);
 	$templateCode = str_replace('<%%URLCOMBOTEXT(supplier)%%>', urlencode($combo_supplier->MatchText), $templateCode);
 	$templateCode = str_replace(
-		'<%%COMBO(manufacturing_date)%%>', 
-		(!$fieldsAreEditable ? 
-			'<div class="form-control-static">' . $combo_manufacturing_date->GetHTML(true) . '</div>' : 
+		'<%%COMBO(manufacturing_date)%%>',
+		(!$fieldsAreEditable ?
+			'<div class="form-control-static">' . $combo_manufacturing_date->GetHTML(true) . '</div>' :
 			$combo_manufacturing_date->GetHTML()
 		), $templateCode);
 	$templateCode = str_replace('<%%COMBOTEXT(manufacturing_date)%%>', $combo_manufacturing_date->GetHTML(true), $templateCode);
 	$templateCode = str_replace(
-		'<%%COMBO(expiry_date)%%>', 
-		(!$fieldsAreEditable ? 
-			'<div class="form-control-static">' . $combo_expiry_date->GetHTML(true) . '</div>' : 
+		'<%%COMBO(expiry_date)%%>',
+		(!$fieldsAreEditable ?
+			'<div class="form-control-static">' . $combo_expiry_date->GetHTML(true) . '</div>' :
 			$combo_expiry_date->GetHTML()
 		), $templateCode);
 	$templateCode = str_replace('<%%COMBOTEXT(expiry_date)%%>', $combo_expiry_date->GetHTML(true), $templateCode);

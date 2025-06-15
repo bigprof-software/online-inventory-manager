@@ -24,7 +24,7 @@
 		error_message($msg[, $back_url]) -- returns html code for a styled error message .. pass explicit false in second param to suppress back button
 		toMySQLDate($formattedDate, $sep = datalist_date_separator, $ord = datalist_date_format)
 		reIndex(&$arr) -- returns a copy of the given array, with keys replaced by 1-based numeric indices, and values replaced by original keys
-		get_embed($provider, $url[, $width, $height, $retrieve]) -- returns embed code for a given url (supported providers: youtube, googlemap)
+		get_embed($provider, $url[, $width, $height, $retrieve]) -- returns embed code for a given url (supported providers: [auto-detect], or explicitly pass one of: youtube, vimeo, googlemap, dailymotion, videofileurl)
 		check_record_permission($table, $id, $perm = 'view') -- returns true if current user has the specified permission $perm ('view', 'edit' or 'delete') for the given recors, false otherwise
 		NavMenus($options) -- returns the HTML code for the top navigation menus. $options is not implemented currently.
 		StyleSheet() -- returns the HTML code for included style sheet files to be placed in the <head> section.
@@ -247,15 +247,29 @@
 		<nav class="navbar navbar-default navbar-fixed-top hidden-print" role="navigation">
 			<div class="navbar-header">
 				<button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
-					<span class="sr-only">Toggle navigation</span>
-					<span class="icon-bar"></span>
-					<span class="icon-bar"></span>
-					<span class="icon-bar"></span>
+					<span class="glyphicon glyphicon-menu-hamburger"></span>
 				</button>
 				<!-- application title is obtained from the name besides the yellow database icon in AppGini, use underscores for spaces -->
 				<a class="navbar-brand" href="<?php echo PREPEND_PATH; ?>index.php"><i class="glyphicon glyphicon-home"></i> <?php echo APP_TITLE; ?></a>
+				<p class="navbar-text pull-left navbar-sub-brand-separator hidden">/</p>
+				<a class="navbar-brand navbar-sub-brand title-link hidden"></a>
 			</div>
 			<div class="collapse navbar-collapse">
+
+				<?php if(!Authentication::isGuest()) { ?>
+					<ul class="nav navbar-nav visible-xs">
+						<div class="btn-group">
+							<a class="btn navbar-btn btn-default btn-lg signed-in-as" href="<?php echo PREPEND_PATH; ?>membership_profile.php">
+								<i class="glyphicon glyphicon-user"></i>
+								<strong class="username"><?php echo $mi['username']; ?></strong>
+							</a>
+							<a class="btn navbar-btn btn-default btn-lg" href="<?php echo PREPEND_PATH; ?>index.php?signOut=1">
+								<i class="glyphicon glyphicon-log-out"></i>
+							</a>
+						</div>
+					</ul>
+				<?php } ?>
+
 				<ul class="nav navbar-nav"><?php echo ($home_page && !HOMEPAGE_NAVMENUS ? '' : NavMenus()); ?></ul>
 
 				<?php if(userCanImport()){ ?>
@@ -273,15 +287,18 @@
 				<?php } ?>
 
 				<?php if(!Request::val('signIn') && !Request::val('loginFailed')) { ?>
-					<?php if(!$mi['username'] || $mi['username'] == $adminConfig['anonymousMember']) { ?>
+					<?php if(Authentication::isGuest()) { ?>
 						<p class="navbar-text navbar-right hidden-xs">&nbsp;</p>
+						<a href="#" class="btn btn-default navbar-btn hidden-xs hidden-browser navbar-right hspacer-lg exit-pwa" title="<?php echo html_attr($Translation['exit']); ?>">
+							<i class="glyphicon glyphicon-remove"></i> <?php echo $Translation['exit']; ?>
+						</a>
 						<a href="<?php echo PREPEND_PATH; ?>index.php?signIn=1" class="btn btn-success navbar-btn navbar-right hidden-xs"><?php echo $Translation['sign in']; ?></a>
 						<p class="navbar-text navbar-right hidden-xs">
 							<?php echo $Translation['not signed in']; ?>
 						</p>
 						<a href="<?php echo PREPEND_PATH; ?>index.php?signIn=1" class="btn btn-success btn-block btn-lg navbar-btn visible-xs">
 							<?php echo $Translation['not signed in']; ?>
-							<i class="glyphicon glyphicon-chevron-right"></i> 
+							<i class="glyphicon glyphicon-chevron-right"></i>
 							<?php echo $Translation['sign in']; ?>
 						</a>
 					<?php } else { ?>
@@ -290,26 +307,25 @@
 							<li class="dropdown" title="<?php echo html_attr("{$Translation['signed as']} {$mi['username']}"); ?>">
 								<a href="#" class="dropdown-toggle profile-menu-icon" data-toggle="dropdown"><i class="glyphicon glyphicon-user icon"></i><span class="profile-menu-text"><?php echo $mi['username']; ?></span><b class="caret"></b></a>
 								<ul class="dropdown-menu profile-menu">
-									<li class="user-profile-menu-item" title="<?php echo html_attr("{$Translation['Your info']}"); ?>">
-										<a href="<?php echo PREPEND_PATH; ?>membership_profile.php"><i class="glyphicon glyphicon-user"></i> <span class="username"><?php echo $mi['username']; ?></span></a>
+									<li class="user-profile-menu-item" title="<?php echo html_attr($Translation['Your info']); ?>">
+										<a href="<?php echo PREPEND_PATH; ?>membership_profile.php"><i class="glyphicon glyphicon-user"></i> <?php echo $Translation['my account']; ?> <span class="label label-default username"><?php echo $mi['username']; ?></span></a>
 									</li>
-									<li class="keyboard-shortcuts-menu-item" title="<?php echo html_attr("{$Translation['keyboard shortcuts']}"); ?>" class="hidden-xs">
+									<li class="keyboard-shortcuts-menu-item hidden-xs" title="<?php echo html_attr($Translation['keyboard shortcuts']); ?>">
 										<a href="#" class="help-shortcuts-launcher">
 											<img src="<?php echo PREPEND_PATH; ?>resources/images/keyboard.png">
 											<?php echo html_attr($Translation['keyboard shortcuts']); ?>
 										</a>
 									</li>
-									<li class="sign-out-menu-item" title="<?php echo html_attr("{$Translation['sign out']}"); ?>">
+									<li class="sign-out-menu-item" title="<?php echo html_attr($Translation['sign out']); ?>">
 										<a href="<?php echo PREPEND_PATH; ?>index.php?signOut=1"><i class="glyphicon glyphicon-log-out"></i> <?php echo $Translation['sign out']; ?></a>
+									</li>
+									<li class="hidden-browser">
+										<a href="#" class="exit-pwa" title="<?php echo html_attr($Translation['exit']); ?>">
+											<i class="glyphicon glyphicon-remove"></i> <?php echo $Translation['exit']; ?>
+										</a>
 									</li>
 								</ul>
 							</li>
-						</ul>
-						<ul class="nav navbar-nav visible-xs">
-							<a class="btn navbar-btn btn-default btn-lg visible-xs" href="<?php echo PREPEND_PATH; ?>index.php?signOut=1"><i class="glyphicon glyphicon-log-out"></i> <?php echo $Translation['sign out']; ?></a>
-							<p class="navbar-text text-center signed-in-as">
-								<?php echo $Translation['signed as']; ?> <strong><a href="<?php echo PREPEND_PATH; ?>membership_profile.php" class="navbar-link username"><?php echo $mi['username']; ?></a></strong>
-							</p>
 						</ul>
 						<script>
 							/* periodically check if user is still signed in */
@@ -324,6 +340,57 @@
 						</script>
 					<?php } ?>
 				<?php } ?>
+
+				<ul class="nav navbar-nav">
+					<a href="#" title="<?php echo html_attr($Translation['exit']); ?>" class="btn btn-default navbar-btn btn-lg visible-xs hidden-browser exit-pwa">
+						<i class="glyphicon glyphicon-remove"></i>
+						<?php echo $Translation['exit']; ?>
+					</a>
+				</ul>
+
+				<a href="#" class="btn btn-default navbar-btn hidden navbar-right hidden-xs install-pwa-btn" title="<?php echo html_attr($Translation['install mobile app']); ?>">
+					<i class="glyphicon glyphicon-cloud-download"></i>
+				</a>
+				<a href="#" class="btn btn-default btn-block btn-lg navbar-btn hidden hidden-sm hidden-md hidden-lg install-pwa-btn" title="<?php echo html_attr($Translation['install mobile app']); ?>">
+					<i class="glyphicon glyphicon-cloud-download"></i> <?php echo $Translation['install mobile app']; ?>
+				</a>
+				<script>
+					// when browser detects that site is installable as PWA, show install button
+					window.addEventListener('beforeinstallprompt', function(e) {
+						e.preventDefault();
+
+						// To override default silent period, set AppGini.config.PWAInstallPromptSilentPeriodDays to the number of days
+						let silentPeriod = 86400000; // default silent period is 10 days
+						if(AppGini.config.PWAInstallPromptSilentPeriodDays) {
+							silentPeriod = parseInt(AppGini.config.PWAInstallPromptSilentPeriodDays) * 10 * 60 * 60 * 24 * 1000;
+						}
+
+						// if user dismissed the install prompt, don't show it again for some time
+						if(
+							localStorage.getItem('AppGini.PWApromptDismissedAt')
+							&& (new Date().getTime() - localStorage.getItem('AppGini.PWApromptDismissedAt')) < silentPeriod
+						) return;
+
+						// unhide .install-pwa-btn by removing .hidden
+						document.querySelectorAll('.install-pwa-btn').forEach(function(el) {
+							el.classList.remove('hidden');
+
+							// install on click
+							el.addEventListener('click', function(ce) {
+								ce.preventDefault();
+								e.prompt();
+
+								// add a localStorage item to prevent showing the install button for some time
+								localStorage.setItem('AppGini.PWApromptDismissedAt', new Date().getTime());
+							});
+						});
+					});
+					$j('.exit-pwa').on('click', function(e) {
+						e.preventDefault();
+						window.close();
+						alert(AppGini.Translate._map['click mobile home button to exit']);
+					});
+				</script>
 			</div>
 		</nav>
 		<?php
@@ -753,15 +820,27 @@
 		if(!$url) return '';
 
 		$providers = [
-			'youtube' => ['oembed' => 'https://www.youtube.com/oembed?'],
+			'youtube' => ['oembed' => 'https://www.youtube.com/oembed', 'regex' => '/^http.*(youtu\.be|youtube\.com)\/.*/i'],
+			'vimeo' => ['oembed' => 'https://vimeo.com/api/oembed.json', 'regex' => '/^http.*vimeo\.com\/.*/i'],
 			'googlemap' => ['oembed' => '', 'regex' => '/^http.*\.google\..*maps/i'],
+			'dailymotion' => ['oembed' => 'https://www.dailymotion.com/services/oembed', 'regex' => '/^http.*(dailymotion\.com|dai\.ly)\/.*/i'],
+			'videofileurl' => ['oembed' => '', 'regex' => '/\.(mp4|webm|ogg|ogv)$/i'],
 		];
 
 		if(!$max_height) $max_height = 360;
 		if(!$max_width) $max_width = 480;
 
 		if(!isset($providers[$provider])) {
-			return '<div class="text-danger">' . $Translation['invalid provider'] . '</div>';
+			// try detecting provider from URL based on regex
+			foreach($providers as $p => $opts) {
+				if(preg_match($opts['regex'], $url)) {
+					$provider = $p;
+					break;
+				}
+			}
+
+			if(!isset($providers[$provider]))
+				return '<div class="text-danger">' . $Translation['invalid provider'] . '</div>';
 		}
 
 		if(isset($providers[$provider]['regex']) && !preg_match($providers[$provider]['regex'], $url)) {
@@ -769,7 +848,7 @@
 		}
 
 		if($providers[$provider]['oembed']) {
-			$oembed = $providers[$provider]['oembed'] . 'url=' . urlencode($url) . "&amp;maxwidth={$max_width}&amp;maxheight={$max_height}&amp;format=json";
+			$oembed = $providers[$provider]['oembed'] . '?url=' . urlencode($url) . "&amp;maxwidth={$max_width}&amp;maxheight={$max_height}&amp;format=json";
 			$data_json = request_cache($oembed);
 
 			$data = json_decode($data_json, true);
@@ -799,8 +878,31 @@
 
 		/* special cases (where there is no oEmbed provider) */
 		if($provider == 'googlemap') return get_embed_googlemap($url, $max_width, $max_height, $retrieve);
+		if($provider == 'videofileurl') return get_embed_videofileurl($url, $max_width, $max_height, $retrieve);
 
-		return '<div class="text-danger">Invalid provider!</div>';
+		return '<div class="text-danger">' . $Translation['invalid provider'] . '</div>';
+	}
+
+	#########################################################
+
+	function get_embed_videofileurl($url, $max_width = '', $max_height = '', $retrieve = 'html') {
+		global $Translation;
+
+		$allowed_exts = ['mp4', 'webm', 'ogg', 'ogv'];
+		$ext = strtolower(pathinfo($url, PATHINFO_EXTENSION));
+
+		if(!in_array($ext, $allowed_exts)) {
+			return '<div class="text-danger">' . $Translation['invalid url'] . '</div>';
+		}
+
+		$video = "<video controls style=\"max-width: 100%%; height: auto;\" src=\"%s\"></video>";
+
+		switch($retrieve) {
+			case 'html':
+				return sprintf($video, $url);
+			default: // 'thumbnail'
+				return '';
+		}
 	}
 
 	#########################################################
@@ -810,34 +912,61 @@
 		$url_parts = parse_url($url);
 		$coords_regex = '/-?\d+(\.\d+)?[,+]-?\d+(\.\d+)?(,\d{1,2}z)?/'; /* https://stackoverflow.com/questions/2660201 */
 
-		if(preg_match($coords_regex, $url_parts['path'] . '?' . $url_parts['query'], $m)) {
-			list($lat, $long, $zoom) = explode(',', $m[0]);
-			$zoom = intval($zoom);
-			if(!$zoom) $zoom = 10; /* default zoom */
-			if(!$max_height) $max_height = 360;
-			if(!$max_width) $max_width = 480;
-
-			$api_key = config('adminConfig')['googleAPIKey'];
-			$embed_url = "https://www.google.com/maps/embed/v1/view?key={$api_key}&amp;center={$lat},{$long}&amp;zoom={$zoom}&amp;maptype=roadmap";
-			$thumbnail_url = "https://maps.googleapis.com/maps/api/staticmap?key={$api_key}&amp;center={$lat},{$long}&amp;zoom={$zoom}&amp;maptype=roadmap&amp;size={$max_width}x{$max_height}";
-
-			if($retrieve == 'html') {
-				return "<iframe width=\"{$max_width}\" height=\"{$max_height}\" frameborder=\"0\" style=\"border:0\" src=\"{$embed_url}\"></iframe>";
-			} else {
-				return $thumbnail_url;
-			}
-		} else {
+		if(!preg_match($coords_regex, $url_parts['path'] . '?' . $url_parts['query'], $m))
 			return '<div class="text-danger">' . $Translation['cant retrieve coordinates from url'] . '</div>';
+
+		list($lat, $long, $zoom) = explode(',', $m[0]);
+		$zoom = intval($zoom);
+		if(!$zoom) $zoom = 15; /* default zoom */
+		if(!$max_height) $max_height = 360;
+		if(!$max_width) $max_width = 480;
+
+		$api_key = config('adminConfig')['googleAPIKey'];
+
+		// if max_height is all numeric, append 'px' to it
+		$frame_height = $max_height;
+		if(is_numeric($frame_height)) $frame_height .= 'px';
+
+		$embed_url = 'https://www.google.com/maps/embed/v1/%s?' . http_build_query([
+			'key' => $api_key,
+			'zoom' => $zoom,
+			'maptype' => 'roadmap',
+		], '', '&amp;');
+
+		$thumbnail_url = 'https://maps.googleapis.com/maps/api/staticmap?' . http_build_query([
+			'key' => $api_key,
+			'zoom' => $zoom,
+			'maptype' => 'roadmap',
+			'size' => "{$max_width}x{$max_height}",
+			'center' => "$lat,$long",
+		], '', '&amp;');
+
+		$iframe = "<iframe allowfullscreen loading=\"lazy\" style=\"border: none; width: 100%%; height: $frame_height;\" src=\"%s\" referrerpolicy=\"no-referrer-when-downgrade\"></iframe>";
+
+		switch($retrieve) {
+			case 'html':
+				$embed_url = sprintf($embed_url, 'view') . '&amp;' . http_build_query(['center' => "$lat,$long"]);
+				return sprintf($iframe, $embed_url);
+			case 'html-pinpoint':
+				$embed_url = sprintf($embed_url, 'place') . '&amp;' . http_build_query(['q' => "$lat,$long"]);
+				return sprintf($iframe, $embed_url);
+			case 'thumbnail-pinpoint':
+				return $thumbnail_url . '&amp;' . http_build_query(['markers' => "$lat,$long"]);
+			default: // 'thumbnail'
+				return $thumbnail_url;
 		}
 	}
 
 	#########################################################
 
 	function request_cache($request, $force_fetch = false) {
+		static $cache_table_exists = null;
 		$max_cache_lifetime = 7 * 86400; /* max cache lifetime in seconds before refreshing from source */
 
 		// force fetching request if no cache table exists
-		$cache_table_exists = sqlValue("show tables like 'membership_cache'");
+		if($cache_table_exists === null)
+			$cache_table_exists = sqlValue("show tables like 'membership_cache'");
+
 		if(!$cache_table_exists)
 			return request_cache($request, true);
 
@@ -936,7 +1065,7 @@
 			}
 		}
 
-		// custom nav links, as defined in "hooks/links-navmenu.php" 
+		// custom nav links, as defined in "hooks/links-navmenu.php"
 		global $navLinks;
 		if(is_array($navLinks)) {
 			$memberInfo = getMemberInfo();
@@ -976,11 +1105,13 @@ EOT;
 		if(!defined('PREPEND_PATH')) define('PREPEND_PATH', '');
 		$prepend_path = PREPEND_PATH;
 		$mtime = filemtime( __DIR__ . '/dynamic.css');
+		$theme = getUserTheme();
+		$theme3d = ($theme == 'bootstrap' && BOOTSTRAP_3D_EFFECTS ? '<link rel="stylesheet" href="' . PREPEND_PATH . 'resources/initializr/css/bootstrap-theme.css">' . "\n" : '');
 
 		$css_links = <<<EOT
 
-			<link rel="stylesheet" href="{$prepend_path}resources/initializr/css/readable.css">
-			<link rel="stylesheet" href="{$prepend_path}resources/lightbox/css/lightbox.css" media="screen">
+			<link rel="stylesheet" href="{$prepend_path}resources/initializr/css/{$theme}.css">
+			{$theme3d}
 			<link rel="stylesheet" href="{$prepend_path}resources/select2/select2.css" media="screen">
 			<link rel="stylesheet" href="{$prepend_path}resources/timepicker/bootstrap-timepicker.min.css" media="screen">
 			<link rel="stylesheet" href="{$prepend_path}dynamic.css?{$mtime}">
@@ -1069,11 +1200,11 @@ EOT;
 		$safe_clear_label = html_attr($Translation['Reset Filters']);
 
 		if($separate_dv) {
-			$reset_selection = "document.myform.SelectedID.value = '';";
+			$reset_selection = "document.forms[0].SelectedID.value = '';";
 		} else {
-			$reset_selection = "document.myform.writeAttribute('novalidate', 'novalidate');";
+			$reset_selection = "document.forms[0].setAttribute('novalidate', 'novalidate');";
 		}
-		$reset_selection .= ' document.myform.NoDV.value=1; return true;';
+		$reset_selection .= ' document.forms[0].NoDV.value=1; return true;';
 
 		$html = <<<EOT
 		<div class="input-group" id="quick-search">
@@ -1294,5 +1425,195 @@ EOT;
 	function isDetailViewEnabled($tn) {
 		$tables = ['transactions', 'batches', 'suppliers', 'categories', 'items', 'sections', ];
 		return in_array($tn, $tables);
+	}
+
+	#########################################################
+
+	function appDir($path = '') {
+		// if path not empty and doesn't start with a slash, add it
+		if($path && $path[0] != '/') $path = '/' . $path;
+		return __DIR__ . $path;
+	}
+
+	#########################################################
+
+	/**
+	 * Inserts a new record in a table, performing various before and after tasks
+	 * @param string $tableName the name of the table to insert into
+	 * @param array $data associative array of field names and values to insert
+	 * @param string $recordOwner the username of the record owner
+	 * @param string $errorMessage error message to be set in case of failure
+	 *
+	 * @return mixed the ID of the inserted record if successful, false otherwise
+	 */
+	function tableInsert($tableName, $data, $recordOwner, &$errorMessage = '') {
+		global $Translation;
+
+		// mm: can member insert record?
+		if(!getTablePermissions($tableName)['insert']) {
+			$errorMessage = $Translation['no insert permission'];
+			return false;
+		}
+
+		$memberInfo = getMemberInfo();
+
+		// check for required fields
+		$fields = get_table_fields($tableName);
+		$notNullFields = notNullFields($tableName);
+		foreach($notNullFields as $fieldName) {
+			if($data[$fieldName] !== '') continue;
+
+			$errorMessage = "{$fields[$fieldName]['info']['caption']}: {$Translation['field not null']}";
+			return false;
+		}
+
+		@include_once(__DIR__ . "/hooks/{$tableName}.php");
+
+		// hook: before_insert
+		$beforeInsertFunc = "{$tableName}_before_insert";
+		if(function_exists($beforeInsertFunc)) {
+			$args = [];
+			if(!$beforeInsertFunc($data, $memberInfo, $args)) {
+				if(isset($args['error_message'])) $errorMessage = $args['error_message'];
+				return false;
+			}
+		}
+
+		$pkIsAutoInc = pkIsAutoIncrement($tableName);
+		$pkField = getPKFieldName($tableName) ?: '';
+
+		$error = '';
+		// set empty fields to NULL
+		$data = array_map(function($v) { return ($v === '' ? NULL : $v); }, $data);
+		insert($tableName, backtick_keys_once($data), $error);
+		if($error) {
+			$errorMessage = $error;
+			return false;
+		}
+
+		$recID = $pkIsAutoInc ? db_insert_id() : ($data[$pkField] ?? false);
+
+		update_calc_fields($tableName, $recID, calculated_fields()[$tableName]);
+
+		// hook: after_insert
+		$afterInsertFunc = "{$tableName}_after_insert";
+		if(function_exists($afterInsertFunc)) {
+			if($row = getRecord($tableName, $recID)) {
+				$data = array_map('makeSafe', $row);
+			}
+			$data['selectedID'] = makeSafe($recID);
+			$args = [];
+			if(!$afterInsertFunc($data, $memberInfo, $args)) { return $recID; }
+		}
+
+		// mm: save ownership data
+		// record owner is current user
+		set_record_owner($tableName, $recID, $recordOwner);
+
+		return $recID;
+	}
+
+	#########################################################
+
+	/**
+	 * Checks whether the primary key of a table is auto-increment
+	 * @param string $tn the name of the table
+	 *
+	 * @return bool true if the primary key is auto-increment, false otherwise
+	 */
+	function pkIsAutoIncrement($tn) {
+		// caching
+		static $cache = [];
+
+		if(isset($cache[$tn])) return $cache[$tn];
+
+		$pk = getPKFieldName($tn);
+		if(!$pk) {
+			$cache[$tn] = false;
+			return false;
+		}
+
+		$isAutoInc = sqlValue("SHOW COLUMNS FROM `$tn` WHERE Field='{$pk}' AND Extra LIKE '%auto_increment%'");
+		$cache[$tn] = $isAutoInc ? true : false;
+		return $cache[$tn];
+	}
+
+	#########################################################
+
+	/**
+	 * @return bool true if the current user is an admin and revealing SQL is allowed, false otherwise
+	 */
+	function showSQL() {
+		$allowAdminShowSQL = true;
+		return $allowAdminShowSQL && getLoggedAdmin() !== false;
+	}
+
+	#########################################################
+
+	/**
+	 * Compact filters by removing empty conditions and groups
+	 * @param array $FilterAnd array of filter AND/OR conditions, passed by reference
+	 * @param array $FilterField array of filter field indices, passed by reference
+	 * @param array $filterOperator array of filter operators, passed by reference
+	 * @param array $FilterValue array of filter values, passed by reference
+	 */
+	function compactFilters(&$FilterAnd, &$FilterField, &$FilterOperator, &$FilterValue) {
+
+		// TODO: move to definitions.php as constants
+		$filterConditionsPerGroup = 4; // Number of filter conditions per group
+		$filterGroups = datalist_filters_count / $filterConditionsPerGroup; // Number of filter groups
+
+		$filterConditionIsEmpty = function($i) use ($FilterField, $FilterOperator) {
+			// check if filter is empty
+			return !$FilterField[$i] || !$FilterOperator[$i];
+		};
+
+		$filterGroupIsEmpty = function($i) use ($filterConditionIsEmpty, $filterConditionsPerGroup) {
+			// check if filter group is empty
+			for($j = 1; $j <= $filterConditionsPerGroup; $j++) {
+				if(!$filterConditionIsEmpty(($i - 1) * $filterConditionsPerGroup + $j)) {
+					return false;
+				}
+			}
+			return true;
+		};
+
+		// 'compact' filter conditions by removing gaps inside each group and removing empty groups
+		$compactedGroups = [];
+		for($gi = 1; $gi <= $filterGroups; $gi++) {
+			$compactedGroups[$gi] = [];
+			for($fi = 1; $fi <= $filterConditionsPerGroup; $fi++) {
+				$filterIndex = (($gi - 1) * $filterConditionsPerGroup) + $fi;
+				if(!$filterConditionIsEmpty($filterIndex)) {
+					$compactedGroups[$gi][] = $filterIndex;
+				}
+			}
+		}
+
+		// rmove empty groups
+		$compactedGroups = array_filter($compactedGroups, function($group) {
+			return count($group) > 0;
+		});
+
+		// re-index groups
+		$compactedGroups = array_values($compactedGroups);
+
+		// now rebuild filters based on the compacted groups
+		$newFilterAnd = $newFilterField = $newFilterOperator = $newFilterValue = [];
+		foreach($compactedGroups as $gi0b => $group) {
+			foreach($group as $fi0b => $fi) {
+				$filterIndex = $gi0b * $filterConditionsPerGroup + $fi0b + 1;
+				$newFilterAnd[$filterIndex] = $FilterAnd[$fi];
+				$newFilterField[$filterIndex] = $FilterField[$fi];
+				$newFilterOperator[$filterIndex] = $FilterOperator[$fi];
+				$newFilterValue[$filterIndex] = $FilterValue[$fi];
+			}
+		}
+
+		// update filter variables
+		$FilterAnd = $newFilterAnd;
+		$FilterField = $newFilterField;
+		$FilterOperator = $newFilterOperator;
+		$FilterValue = $newFilterValue;
 	}
 

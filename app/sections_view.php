@@ -66,7 +66,7 @@
 	$x->AllowPrinting = 1;
 	$x->AllowPrintingDV = 1;
 	$x->AllowCSV = 1;
-	$x->AllowAdminShowSQL = 1;
+	$x->AllowAdminShowSQL = showSQL();
 	$x->RecordsPerPage = 10;
 	$x->QuickSearch = 1;
 	$x->QuickSearchText = $Translation['quick search'];
@@ -113,7 +113,7 @@
 	}
 
 	if(!$headerCode) {
-		include_once(__DIR__ . '/header.php'); 
+		include_once(__DIR__ . '/header.php');
 	} else {
 		ob_start();
 		include_once(__DIR__ . '/header.php');
@@ -130,7 +130,7 @@
 	}
 
 	if(!$footerCode) {
-		include_once(__DIR__ . '/footer.php'); 
+		include_once(__DIR__ . '/footer.php');
 	} else {
 		ob_start();
 		include_once(__DIR__ . '/footer.php');

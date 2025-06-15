@@ -10,7 +10,10 @@ function transactions_insert(&$error_message = '') {
 
 	// mm: can member insert record?
 	$arrPerm = getTablePermissions('transactions');
-	if(!$arrPerm['insert']) return false;
+	if(!$arrPerm['insert']) {
+		$error_message = $Translation['no insert permission'];
+		return false;
+	}
 
 	$data = [
 		'transaction_date' => Request::dateComponents('transaction_date', '1'),
@@ -21,52 +24,14 @@ function transactions_insert(&$error_message = '') {
 		'quantity' => Request::val('quantity', '1.00'),
 	];
 
-	if($data['transaction_type'] === '') {
-		echo StyleSheet() . "\n\n<div class=\"alert alert-danger\">{$Translation['error:']} 'Transaction type': {$Translation['field not null']}<br><br>";
-		echo '<a href="" onclick="history.go(-1); return false;">' . $Translation['< back'] . '</a></div>';
-		exit;
-	}
-
-	// hook: transactions_before_insert
-	if(function_exists('transactions_before_insert')) {
-		$args = [];
-		if(!transactions_before_insert($data, getMemberInfo(), $args)) {
-			if(isset($args['error_message'])) $error_message = $args['error_message'];
-			return false;
-		}
-	}
-
-	$error = '';
-	// set empty fields to NULL
-	$data = array_map(function($v) { return ($v === '' ? NULL : $v); }, $data);
-	insert('transactions', backtick_keys_once($data), $error);
-	if($error) {
-		$error_message = $error;
-		return false;
-	}
-
-	$recID = db_insert_id(db_link());
-
-	update_calc_fields('transactions', $recID, calculated_fields()['transactions']);
-
-	// hook: transactions_after_insert
-	if(function_exists('transactions_after_insert')) {
-		$res = sql("SELECT * FROM `transactions` WHERE `id`='" . makeSafe($recID, false) . "' LIMIT 1", $eo);
-		if($row = db_fetch_assoc($res)) {
-			$data = array_map('makeSafe', $row);
-		}
-		$data['selectedID'] = makeSafe($recID, false);
-		$args = [];
-		if(!transactions_after_insert($data, getMemberInfo(), $args)) { return $recID; }
-	}
-
-	// mm: save ownership data
 	// record owner is current user
 	$recordOwner = getLoggedMemberID();
-	set_record_owner('transactions', $recID, $recordOwner);
+
+	$recID = tableInsert('transactions', $data, $recordOwner, $error_message);
 
 	// if this record is a copy of another record, copy children if applicable
-	if(strlen(Request::val('SelectedID'))) transactions_copy_children($recID, Request::val('SelectedID'));
+	if(strlen(Request::val('SelectedID')) && $recID !== false)
+		transactions_copy_children($recID, Request::val('SelectedID'));
 
 	return $recID;
 }
@@ -76,6 +41,8 @@ function transactions_copy_children($destination_id, $source_id) {
 	$requests = []; // array of curl handlers for launching insert requests
 	$eo = ['silentErrors' => true];
 	$safe_sid = makeSafe($source_id);
+	$currentUsername = getLoggedMemberID();
+	$errorMessage = '';
 
 	// launch requests, asynchronously
 	curl_batch($requests);
@@ -98,7 +65,7 @@ function transactions_delete($selected_id, $AllowDeleteOfParents = false, $skipC
 			return $Translation['Couldn\'t delete this record'] . (
 				!empty($args['error_message']) ?
 					'<div class="text-bold">' . strip_tags($args['error_message']) . '</div>'
-					: '' 
+					: ''
 			);
 	}
 
@@ -158,9 +125,9 @@ function transactions_update(&$selected_id, &$error_message = '') {
 	}
 
 	if(!update(
-		'transactions', 
-		backtick_keys_once($set), 
-		['`id`' => $selected_id], 
+		'transactions',
+		backtick_keys_once($set),
+		['`id`' => $selected_id],
 		$error_message
 	)) {
 		echo $error_message;
@@ -169,14 +136,11 @@ function transactions_update(&$selected_id, &$error_message = '') {
 	}
 
 
-	$eo = ['silentErrors' => true];
-
 	update_calc_fields('transactions', $data['selectedID'], calculated_fields()['transactions']);
 
 	// hook: transactions_after_update
 	if(function_exists('transactions_after_update')) {
-		$res = sql("SELECT * FROM `transactions` WHERE `id`='{$data['selectedID']}' LIMIT 1", $eo);
-		if($row = db_fetch_assoc($res)) $data = array_map('makeSafe', $row);
+		if($row = getRecord('transactions', $data['selectedID'])) $data = array_map('makeSafe', $row);
 
 		$data['selectedID'] = $data['id'];
 		$args = ['old_data' => $old_data];
@@ -263,8 +227,7 @@ function transactions_form($selectedId = '', $allowUpdate = true, $allowInsert =
 	$combo_transaction_type->AllowNull = false;
 
 	if($hasSelectedId) {
-		$res = sql("SELECT * FROM `transactions` WHERE `id`='" . makeSafe($selectedId) . "'", $eo);
-		if(!($row = db_fetch_array($res))) {
+		if(!($row = getRecord('transactions', $selectedId))) {
 			return error_message($Translation['No records found'], 'transactions_view.php', false);
 		}
 		$combo_transaction_date->DefaultDate = $row['transaction_date'];
@@ -300,7 +263,7 @@ function transactions_form($selectedId = '', $allowUpdate = true, $allowInsert =
 		AppGini.current_batch__RAND__ = { text: "", value: "<?php echo addslashes($hasSelectedId ? $urow['batch'] : htmlspecialchars($filterer_batch, ENT_QUOTES)); ?>"};
 		AppGini.current_section__RAND__ = { text: "", value: "<?php echo addslashes($hasSelectedId ? $urow['section'] : htmlspecialchars($filterer_section, ENT_QUOTES)); ?>"};
 
-		jQuery(function() {
+		$j(function() {
 			setTimeout(function() {
 				if(typeof(item_reload__RAND__) == 'function') item_reload__RAND__();
 				<?php echo (!$allowUpdate || $dvprint ? 'if(typeof(batch_reload__RAND__) == \'function\') batch_reload__RAND__(AppGini.current_item__RAND__.value);' : ''); ?>
@@ -563,9 +526,9 @@ function transactions_form($selectedId = '', $allowUpdate = true, $allowInsert =
 	$templateCode = str_replace('<%%EMBEDDED%%>', (Request::val('Embedded') ? 'Embedded=1' : ''), $templateCode);
 	// process buttons
 	if($showSaveNew) {
-		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-success" id="insert" name="insert_x" value="1" onclick="return transactions_validateData();"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save New'] . '</button>', $templateCode);
+		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-success" id="insert" name="insert_x" value="1"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save New'] . '</button>', $templateCode);
 	} elseif($showSaveAsCopy) {
-		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="insert" name="insert_x" value="1" onclick="return transactions_validateData();"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save As Copy'] . '</button>', $templateCode);
+		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="insert" name="insert_x" value="1"><i class="glyphicon glyphicon-plus-sign"></i> ' . $Translation['Save As Copy'] . '</button>', $templateCode);
 	} else {
 		$templateCode = str_replace('<%%INSERT_BUTTON%%>', '', $templateCode);
 	}
@@ -574,13 +537,13 @@ function transactions_form($selectedId = '', $allowUpdate = true, $allowInsert =
 	if(Request::val('Embedded')) {
 		$backAction = 'AppGini.closeParentModal(); return false;';
 	} else {
-		$backAction = '$j(\'form\').eq(0).attr(\'novalidate\', \'novalidate\'); document.myform.reset(); return true;';
+		$backAction = 'return true;';
 	}
 
 	if($hasSelectedId) {
-		if(!Request::val('Embedded')) $templateCode = str_replace('<%%DVPRINT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="dvprint" name="dvprint_x" value="1" onclick="$j(\'form\').eq(0).prop(\'novalidate\', true); document.myform.reset(); return true;" title="' . html_attr($Translation['Print Preview']) . '"><i class="glyphicon glyphicon-print"></i> ' . $Translation['Print Preview'] . '</button>', $templateCode);
+		if(!Request::val('Embedded')) $templateCode = str_replace('<%%DVPRINT_BUTTON%%>', '<button type="submit" class="btn btn-default" id="dvprint" name="dvprint_x" value="1" title="' . html_attr($Translation['Print Preview']) . '"><i class="glyphicon glyphicon-print"></i> ' . $Translation['Print Preview'] . '</button>', $templateCode);
 		if($allowUpdate)
-			$templateCode = str_replace('<%%UPDATE_BUTTON%%>', '<button type="submit" class="btn btn-success btn-lg" id="update" name="update_x" value="1" onclick="return transactions_validateData();" title="' . html_attr($Translation['Save Changes']) . '"><i class="glyphicon glyphicon-ok"></i> ' . $Translation['Save Changes'] . '</button>', $templateCode);
+			$templateCode = str_replace('<%%UPDATE_BUTTON%%>', '<button type="submit" class="btn btn-success btn-lg" id="update" name="update_x" value="1" title="' . html_attr($Translation['Save Changes']) . '"><i class="glyphicon glyphicon-ok"></i> ' . $Translation['Save Changes'] . '</button>', $templateCode);
 		else
 			$templateCode = str_replace('<%%UPDATE_BUTTON%%>', '', $templateCode);
 
@@ -604,14 +567,14 @@ function transactions_form($selectedId = '', $allowUpdate = true, $allowInsert =
 			$templateCode = str_replace('<%%DESELECT_BUTTON%%>', '', $templateCode);
 		elseif($separateDV)
 			$templateCode = str_replace(
-				'<%%DESELECT_BUTTON%%>', 
+				'<%%DESELECT_BUTTON%%>',
 				'<button
-					type="submit" 
-					class="btn btn-default" 
-					id="deselect" 
-					name="deselect_x" 
-					value="1" 
-					onclick="' . $backAction . '" 
+					type="submit"
+					class="btn btn-default"
+					id="deselect"
+					name="deselect_x"
+					value="1"
+					onclick="' . $backAction . '"
 					title="' . html_attr($Translation['Back']) . '">
 						<i class="glyphicon glyphicon-chevron-left"></i> ' .
 						$Translation['Back'] .
@@ -625,30 +588,30 @@ function transactions_form($selectedId = '', $allowUpdate = true, $allowInsert =
 	// set records to read only if user can't insert new records and can't edit current record
 	if(!$fieldsAreEditable) {
 		$jsReadOnly = '';
-		$jsReadOnly .= "\tjQuery('#transaction_date').prop('readonly', true);\n";
-		$jsReadOnly .= "\tjQuery('#transaction_dateDay, #transaction_dateMonth, #transaction_dateYear').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
-		$jsReadOnly .= "\tjQuery('#item').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
-		$jsReadOnly .= "\tjQuery('#item_caption').prop('disabled', true).css({ color: '#555', backgroundColor: 'white' });\n";
-		$jsReadOnly .= "\tjQuery('#batch').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
-		$jsReadOnly .= "\tjQuery('#batch_caption').prop('disabled', true).css({ color: '#555', backgroundColor: 'white' });\n";
-		$jsReadOnly .= "\tjQuery('#section').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
-		$jsReadOnly .= "\tjQuery('#section_caption').prop('disabled', true).css({ color: '#555', backgroundColor: 'white' });\n";
-		$jsReadOnly .= "\tjQuery('input[name=transaction_type]').parent().html('<div class=\"form-control-static\">' + jQuery('input[name=transaction_type]:checked').next().text() + '</div>')\n";
-		$jsReadOnly .= "\tjQuery('#quantity').replaceWith('<div class=\"form-control-static\" id=\"quantity\">' + (jQuery('#quantity').val() || '') + '</div>');\n";
-		$jsReadOnly .= "\tjQuery('.select2-container').hide();\n";
+		$jsReadOnly .= "\t\$j('#transaction_date').prop('readonly', true);\n";
+		$jsReadOnly .= "\t\$j('#transaction_dateDay, #transaction_dateMonth, #transaction_dateYear').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
+		$jsReadOnly .= "\t\$j('#item').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
+		$jsReadOnly .= "\t\$j('#item_caption').prop('disabled', true).css({ color: '#555', backgroundColor: 'white' });\n";
+		$jsReadOnly .= "\t\$j('#batch').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
+		$jsReadOnly .= "\t\$j('#batch_caption').prop('disabled', true).css({ color: '#555', backgroundColor: 'white' });\n";
+		$jsReadOnly .= "\t\$j('#section').prop('disabled', true).css({ color: '#555', backgroundColor: '#fff' });\n";
+		$jsReadOnly .= "\t\$j('#section_caption').prop('disabled', true).css({ color: '#555', backgroundColor: 'white' });\n";
+		$jsReadOnly .= "\t\$j('input[name=transaction_type]').parent().html('<div class=\"form-control-static\">' + \$j('input[name=transaction_type]:checked').next().text() + '</div>')\n";
+		$jsReadOnly .= "\t\$j('#quantity').replaceWith('<div class=\"form-control-static\" id=\"quantity\">' + (\$j('#quantity').val() || '') + '</div>');\n";
+		$jsReadOnly .= "\t\$j('.select2-container').hide();\n";
 
 		$noUploads = true;
 	} else {
 		// temporarily disable form change handler till time and datetime pickers are enabled
-		$jsEditable = "\tjQuery('form').eq(0).data('already_changed', true);";
-		$jsEditable .= "\tjQuery('form').eq(0).data('already_changed', false);"; // re-enable form change handler
+		$jsEditable = "\t\$j('form').eq(0).data('already_changed', true);";
+		$jsEditable .= "\t\$j('form').eq(0).data('already_changed', false);"; // re-enable form change handler
 	}
 
 	// process combos
 	$templateCode = str_replace(
-		'<%%COMBO(transaction_date)%%>', 
-		(!$fieldsAreEditable ? 
-			'<div class="form-control-static">' . $combo_transaction_date->GetHTML(true) . '</div>' : 
+		'<%%COMBO(transaction_date)%%>',
+		(!$fieldsAreEditable ?
+			'<div class="form-control-static">' . $combo_transaction_date->GetHTML(true) . '</div>' :
 			$combo_transaction_date->GetHTML()
 		), $templateCode);
 	$templateCode = str_replace('<%%COMBOTEXT(transaction_date)%%>', $combo_transaction_date->GetHTML(true), $templateCode);

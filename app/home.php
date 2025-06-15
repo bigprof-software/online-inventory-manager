@@ -1,5 +1,5 @@
-<?php 
-	if(!isset($Translation)) { @header('Location: index.php'); exit; } 
+<?php
+	if(!isset($Translation)) { @header('Location: index.php'); exit; }
 
 	include_once(__DIR__ . '/header.php');
 	@include(__DIR__ . '/hooks/links-home.php');
@@ -48,8 +48,8 @@
 <div id="homepage-search-box-container" class="input-group input-group-lg vspacer-lg hidden">
 	<input type="text" class="form-control" id="homepage-search-box" placeholder="<?php echo html_attr($Translation['quick search']); ?>">
 	<span class="input-group-btn">
-		<button class="btn btn-default" type="button"><i class="glyphicon glyphicon-search"></i></button>
-		<button class="btn btn-default" type="button" id="clear-homepage-search-box"><i class="glyphicon glyphicon-remove"></i></button>
+		<button class="btn btn-default" type="button" title="<?php echo html_attr($Translation['quick search']); ?>"><i class="glyphicon glyphicon-search"></i></button>
+		<button class="btn btn-default" type="button" id="clear-homepage-search-box" title="<?php echo html_attr($Translation['clear search']); ?>"><i class="glyphicon glyphicon-remove"></i></button>
 	</span>
 </div>
 
@@ -179,7 +179,7 @@
 
 	} elseif($mi['username'] && $mi['username'] != $guest_username) {
 		// non-guest user but no tables to access
-		die(error_message($Translation['no table access'], false));
+		die(error_message($Translation['no table access'], application_url('index.php?signIn=1'), false));
 	} else {
 		?><script>window.location='index.php?signIn=1';</script><?php
 	}
@@ -208,7 +208,7 @@
 			modal_window({
 				url: tn + '_view.php?addNew_x=1&Embedded=1',
 				size: 'full',
-				title: $j(this).prev().children('.table-caption').text() + ": <?php echo html_attr($Translation['Add New']); ?>" 
+				title: $j(this).prev().children('.table-caption').text() + ": <?php echo html_attr($Translation['Add New']); ?>"
 			});
 			return false;
 		});
@@ -281,8 +281,8 @@
 				});
 			});
 
-			// focus search box if not hidden
-			$j('#homepage-search-box').focus();
+			// focus search box if not in xs screen size
+			if(!screen_size('xs')) $j('#homepage-search-box').focus();
 
 			// focus search box on pressing '/' or '?' keys
 			$j(document).keyup(function(e) {

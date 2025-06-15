@@ -57,11 +57,11 @@
 				foreach($childLookups as $ChildLookupField => $childConfig) {
 					if($childConfig['parent-table'] != $ParentTable) continue;
 
-					$TableIcon = ($childConfig['table-icon'] ? "<img src=\"{$childConfig['table-icon']}\" border=\"0\">" : '');
+					$TableIcon = ($childConfig['table-icon'] ? "<img src=\"{$childConfig['table-icon']}\" border=\"0\" class=\"child-tab-icon\">" : '');
 
 					$tabLabels .= "<li class=\"child-tab-label child-table-{$ChildTable} lookup-field-{$ChildLookupField} " . ($tabLabels ? '' : 'active') . "\">" .
 							"<a href=\"#panel_{$ChildTable}-{$ChildLookupField}\" id=\"tab_{$ChildTable}-{$ChildLookupField}\" data-toggle=\"tab\">" .
-								$TableIcon . $childConfig['tab-label'] .
+								"$TableIcon<span class=\"child-tab-text\">{$childConfig['tab-label']}</span>" .
 								"<span class=\"badge child-count child-count-{$ChildTable}-{$ChildLookupField}\"></span>" .
 							"</a>" .
 						"</li>\n\t\t\t\t";
@@ -208,9 +208,12 @@
 				"`$ChildTable`.`$ChildLookupField` IN ($IDs) " .
 				"GROUP BY `$ChildTable`.`$ChildLookupField`";
 			$res = sql($query, $eo);
-			$data = ['ChildTable' => $ChildTable, 'ChildLookupField' => $ChildLookupField, 'counts' => []];
+			$data = ['ChildTable' => $ChildTable, 'ChildLookupField' => $ChildLookupField];
+			// build counts array in $data, with keys being the IDs and values being 0 (as initial count)
+			$data['counts'] = array_fill_keys(explode("','", substr($IDs, 1, -1)), 0);
 			while($row = db_fetch_row($res)) {
 				$data['counts'][$row[0]] = intval($row[1]);
+				if(showSQL()) $data['query'] = $query;
 			}
 
 			json_response($data); // this returns the count and exits

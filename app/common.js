@@ -1,9 +1,14 @@
 var AppGini = AppGini || {};
 
-AppGini.version = 24.16;
+AppGini.version = 25.13;
+
+/* global constants */
+const NO_GEOLOCATION_THOUGH_REQUIRED = -1;
+const NO_GEOLOCATION = 0;
+const GEOLOCATION_POPULATED = 1;
 
 /* initials and fixes */
-jQuery(function() {
+$j(function() {
 	AppGini.count_ajaxes_blocking_saving = 0;
 
 	/* add ":truncated" pseudo-class to detect elements with clipped text */
@@ -33,7 +38,7 @@ jQuery(function() {
 		$j('.detail_view .img-responsive').css({'max-width' : parseInt($j('.detail_view').width() * full_img_factor) + 'px'});
 
 		/* change height of sizer div below navbar to accommodate navbar height */
-		$j('.top-margin-adjuster').height($j('.navbar-fixed-top:visible').height() ?? 10);
+		$j('.top-margin-adjuster').height($j('.navbar-fixed-top:visible > .navbar-header').height() ?? 10);
 
 		/* remove labels from truncated buttons, leaving only glyphicons */
 		$j('.btn.truncate:truncated').each(function() {
@@ -75,10 +80,10 @@ jQuery(function() {
 	});
 
 	/* don't allow responsive images to initially exceed the smaller of their actual dimensions, or .6 container width */
-	jQuery('.detail_view .img-responsive').each(function() {
+	$j('.detail_view .img-responsive').each(function() {
 		 var pic_real_width, pic_real_height;
-		 var img = jQuery(this);
-		 jQuery('<img/>') // Make in memory copy of image to avoid css issues
+		 var img = $j(this);
+		 $j('<img/>') // Make in memory copy of image to avoid css issues
 				.attr('src', img.attr('src'))
 				.on('load', function() {
 					pic_real_width = this.width;
@@ -89,10 +94,10 @@ jQuery(function() {
 				});
 	});
 
-	jQuery('.table-responsive .img-responsive').each(function() {
+	$j('.table-responsive .img-responsive').each(function() {
 		 var pic_real_width, pic_real_height;
-		 var img = jQuery(this);
-		 jQuery('<img/>') // Make in memory copy of image to avoid css issues
+		 var img = $j(this);
+		 $j('<img/>') // Make in memory copy of image to avoid css issues
 				.attr('src', img.attr('src'))
 				.on('load', function() {
 					pic_real_width = this.width;
@@ -104,15 +109,15 @@ jQuery(function() {
 	});
 
 	/* toggle TV action buttons based on selected records */
-	jQuery('.record_selector').click(function() {
-		var id = jQuery(this).val();
-		var checked = jQuery(this).prop('checked');
+	$j('.record_selector').click(function() {
+		var id = $j(this).val();
+		var checked = $j(this).prop('checked');
 		update_action_buttons();
 	});
 
 	/* select/deselect all records in TV */
-	jQuery('#select_all_records').click(function() {
-		jQuery('.record_selector').prop('checked', jQuery(this).prop('checked'));
+	$j('#select_all_records').click(function() {
+		$j('.record_selector').prop('checked', $j(this).prop('checked'));
 		update_action_buttons();
 	});
 
@@ -132,14 +137,6 @@ jQuery(function() {
 
 	/* remove empty email links */
 	$j('a[href="mailto:"]').remove();
-
-	/* Disable action buttons when form is submitted to avoid user re-submission on slow connections */
-	$j('form').eq(0).submit(function() {
-		setTimeout(function() {
-			var tn = AppGini.currentTableName();
-			$j('#' + tn + '_dv_action_buttons').find('.btn').prop('disabled', true);
-		}, 200); // delay purpose is to allow submitting the button values first then disable them.
-	});
 
 	/* fix links inside alerts */
 	$j('.alert a:not(.btn)').addClass('alert-link');
@@ -194,7 +191,8 @@ jQuery(function() {
 			return false;
 		}
 
-		$j('form').attr('novalidate', 'novalidate')
+		AppGini.suppressBeforeUnloadWarning = true;
+
 		return true;
 	})
 
@@ -329,46 +327,46 @@ jQuery(function() {
 	// render the DV layout toolbar
 	AppGini.renderDVLayoutToolbar();
 
-	// handle click on layout toolbar buttons
-	$j('.detail_view-layout').on('click', 'a', function(e) {
-		e.preventDefault();
-
-		if($j(this).hasClass('switch-to-single-column-layout')) {
-			AppGini.applySingleColumnLayout();
-		} else if($j(this).hasClass('switch-to-double-column-layout')) {
-			AppGini.applyDoubleColumnLayout();
-		} else if($j(this).hasClass('switch-to-triple-column-layout')) {
-			AppGini.applyTripleColumnLayout();
-		}
-	});
-
+	// show records per page selector in TV
 	AppGini.renderTVRecordsPerPageSelector();
 	AppGini.appendRecordsPerPageToTableLinks();
 
+	$j('#insert').on('click', (e) => { AppGini.handleSubmitRecord(e, true) });
+	$j('#update').on('click', (e) => { AppGini.handleSubmitRecord(e, false) });
+
+	// handle clicking 'Capture my location' button
+	AppGini.handleCaptureLocation();
+
+	AppGini.handleDVFormChange();
+	AppGini.handleDVFormSubmission();
+	AppGini.addTimeFieldQuickActions();
+	AppGini.handleLightbox();
+	AppGini.enhanceMobileUX();
+	AppGini.controlBackButtonBehavior();
 });
 
 /* show/hide TV action buttons based on whether records are selected or not */
 function update_action_buttons() {
-	if(jQuery('.record_selector:checked').length) {
-		jQuery('.selected_records').removeClass('hidden');
-		jQuery('#select_all_records')
-			.prop('checked', (jQuery('.record_selector:checked').length == jQuery('.record_selector').length));
+	if($j('.record_selector:checked').length) {
+		$j('.selected_records').removeClass('hidden');
+		$j('#select_all_records')
+			.prop('checked', ($j('.record_selector:checked').length == $j('.record_selector').length));
 	} else {
-		jQuery('.selected_records').addClass('hidden');
+		$j('.selected_records').addClass('hidden');
 	}
 }
 
 /* fix table-responsive behavior on Chrome */
 function fix_table_responsive_width() {
-	var resp_width = jQuery('div.table-responsive').width();
+	var resp_width = $j('div.table-responsive').width();
 	var table_width;
 
 	if(resp_width) {
-		jQuery('div.table-responsive table').width('100%');
-		table_width = jQuery('div.table-responsive table').width();
-		resp_width = jQuery('div.table-responsive').width();
+		$j('div.table-responsive table').width('100%');
+		table_width = $j('div.table-responsive table').width();
+		resp_width = $j('div.table-responsive').width();
 		if(resp_width == table_width) {
-			jQuery('div.table-responsive table').width(resp_width - 1);
+			$j('div.table-responsive table').width(resp_width - 1);
 		}
 	}
 }
@@ -442,40 +440,52 @@ AppGini.ajaxCache = function() {
 	};
 };
 
-function transactions_validateData() {
+function transactions_validateData(insertMode) {
 	$j('.has-error').removeClass('has-error');
 	var errors = false;
 
 	// check all required fields have values
-	if(!AppGini.Validation.fieldRequired('radio', 'transaction_type', 'Transaction type')) return false;
+	const reqFields = [
+		// [field-type, field-name, field-caption], ...
+		['radio', 'transaction_type', 'Transaction type'],
+	];
+
+	reqFields.map(function(rf) {
+		// avoid displaying more error messages and overwhelming users
+		if(rf.length != 3 || errors) return;
+
+		if(!AppGini.Validation.fieldRequired(rf[0], rf[1], rf[2], insertMode)) errors = true;
+	});
+
+	if(errors) return false;
 
 	return !errors;
 }
-function batches_validateData() {
+function batches_validateData(insertMode) {
 	$j('.has-error').removeClass('has-error');
 	var errors = false;
 
 	return !errors;
 }
-function suppliers_validateData() {
+function suppliers_validateData(insertMode) {
 	$j('.has-error').removeClass('has-error');
 	var errors = false;
 
 	return !errors;
 }
-function categories_validateData() {
+function categories_validateData(insertMode) {
 	$j('.has-error').removeClass('has-error');
 	var errors = false;
 
 	return !errors;
 }
-function items_validateData() {
+function items_validateData(insertMode) {
 	$j('.has-error').removeClass('has-error');
 	var errors = false;
 
 	return !errors;
 }
-function sections_validateData() {
+function sections_validateData(insertMode) {
 	$j('.has-error').removeClass('has-error');
 	var errors = false;
 
@@ -488,6 +498,7 @@ function post(url, params, update, disable, loading, success_callback) {
 		type: 'POST',
 		data: params,
 		beforeSend: function() {
+			$j(`#${update}`).removeClass('alert-danger');
 			if($j('#' + disable).length) $j('#' + disable).prop('disabled', true);
 			if($j('#' + loading).length && update != loading)
 				$j('#' + loading).html(
@@ -503,6 +514,12 @@ function post(url, params, update, disable, loading, success_callback) {
 				// re-calculate fields by default if no other callback explicitly passed
 				AppGini.calculatedFields.init();
 		},
+		error: function(jqXHR, textStatus, errorThrown) {
+			/* show error message in notification area */
+			if ($j(`#${update}`).length) {
+				$j(`#${update}`).addClass('alert-danger').html(jqXHR.responseText || errorThrown);
+			}
+		},
 		complete: function() {
 			if($j('#' + disable).length) $j('#' + disable).prop('disabled', false);
 			if($j('#' + loading).length && loading != update) $j('#' + loading).html('');
@@ -511,63 +528,127 @@ function post(url, params, update, disable, loading, success_callback) {
 }
 
 function post2(url, params, notify, disable, loading, redirectOnSuccess) {
-	new Ajax.Request(
-		url, {
-			method: 'post',
-			parameters: params,
-			onCreate: function() {
-				if($j('#' + disable).length) $j('#' + disable).prop('disabled', true);
-				if($j('#' + loading).length) $j('#' + loading).show();
-			},
-			onSuccess: function(resp) {
-				/* show notification containing returned text */
-				if($j('#' + notify).length)
-					$j('#' + notify).removeClass('alert-danger').show().html(resp.responseText);
-
-				/* in case no errors returned, */
-				if(resp.responseText.indexOf(AppGini.Translate._map['error:']) == -1) {
-					/* redirect to provided url */
-					if(redirectOnSuccess !== undefined) {
-						window.location = redirectOnSuccess;
-
-					/* or hide notification after a few seconds if no url is provided */
-					} else {
-						if($j('#' + notify).length)
-							setTimeout(function() { $j('#' + notify).hide(); }, 15000);
-					}
-
-				/* in case of error, apply error class */
-				} else {
-					$j('#' + notify).addClass('alert-danger');
-				}
-			},
-			onComplete: function() {
-				$j('#' + disable).prop('disabled', false);
-				$j('#' + loading).hide();
+	$j.ajax({
+		url: url,
+		type: 'POST',
+		data: params,
+		beforeSend: function() {
+			if ($j('#' + disable).length) $j('#' + disable).prop('disabled', true);
+			if ($j('#' + loading).length) $j('#' + loading).show();
+		},
+		success: function(resp) {
+			/* show notification containing returned text */
+			if ($j('#' + notify).length) {
+				$j('#' + notify).removeClass('alert-danger').show().html(resp);
 			}
+
+			/* in case no errors returned, */
+			if (resp.indexOf(AppGini.Translate._map['error:']) === -1) {
+				/* redirect to provided url */
+				if (redirectOnSuccess !== undefined) {
+					window.location = redirectOnSuccess;
+
+				/* or hide notification after a few seconds if no url is provided */
+				} else {
+					if ($j('#' + notify).length) {
+						setTimeout(function() {
+							$j('#' + notify).hide();
+						}, 15000);
+					}
+				}
+
+			/* in case of error, apply error class */
+			} else {
+				$j('#' + notify).addClass('alert-danger');
+			}
+		},
+		error: function(jqXHR, textStatus, errorThrown) {
+			/* show error message in notification area */
+			if ($j(`#${notify}`).length) {
+				$j(`#${notify}`).addClass('alert-danger').show().html(jqXHR.responseText || errorThrown);
+			}
+		},
+		complete: function() {
+			$j('#' + disable).prop('disabled', false);
+			$j('#' + loading).hide();
 		}
-	);
+	});
 }
 
-function passwordStrength(password, username) {
-	// score calculation (out of 10)
-	var score = 0;
-	re = new RegExp(username, 'i');
-	if(username.length && password.match(re)) score -= 5;
-	if(password.length < 6) score -= 3;
-	else if(password.length > 8) score += 5;
-	else score += 3;
-	if(password.match(/(.*[0-9].*[0-9].*[0-9])/)) score += 3;
-	if(password.match(/(.*[!,@,#,$,%,^,&,*,?,_,~].*[!,@,#,$,%,^,&,*,?,_,~])/)) score += 5;
-	if(password.match(/([a-z].*[A-Z])|([A-Z].*[a-z])/)) score += 2;
-
-	if(score >= 9)
-		return 'strong';
-	else if(score >= 5)
-		return 'good';
-	else
-		return 'weak';
+// Function to get a list of common passwords
+function getCommonPasswords() {
+	return [
+		'123456', 'password', '123456789', '12345678', '12345',
+		'1234567', '1234567890', 'qwerty', 'abc123', '111111',
+		'123123', 'iloveyou', 'password1', 'admin', 'letmein',
+		'welcome', 'monkey', 'football', 'baseball', 'dragon',
+		'sunshine', 'shadow', 'master', 'superman', 'freedom',
+		'hello', 'whatever', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm'
+	];
 }
+
+function passwordStrength(password, username = '') {
+	let score = 0;
+
+	// Minimum password length
+	const minLength = 8;
+
+	// Helper function to check for repeated sequences
+	const hasRepeatedSequences = (str) => /(.)\1{2,}/.test(str);
+
+	// Check if the password contains the username
+	if (username && password.toLowerCase().includes(username.toLowerCase())) {
+		score -= 5;
+	}
+
+	// Check password length
+	if (password.length < minLength) {
+		score -= 3;
+	} else if (password.length >= 12) {
+		score += 5; // Bonus for longer passwords
+	} else {
+		score += 3; // Slightly better than the minimum
+	}
+
+	// Check for numbers
+	if (/\d/.test(password)) {
+		score += 2;
+	}
+
+	// Check for special characters
+	if (/[!@#$%^&*?_~]/.test(password)) {
+		score += 3;
+	}
+
+	// Check for mixed case
+	if (/[a-z]/.test(password) && /[A-Z]/.test(password)) {
+		score += 3;
+	}
+
+	// Check for repeated sequences
+	if (hasRepeatedSequences(password)) {
+		score -= 2;
+	}
+
+	// Check for common passwords
+	const commonPasswords = getCommonPasswords();
+	if (commonPasswords.includes(password.toLowerCase())) {
+		score -= 5;
+	}
+
+	// Ensure the score is not below 0
+	score = Math.max(score, 0);
+
+	// Determine the strength label
+	if (score >= 9) {
+	  return 'strong';
+	} else if (score >= 6) {
+	  return 'good';
+	} else {
+	  return 'weak';
+	}
+}
+
 function validateEmail(email) { 
 	var re = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 	return re.test(email);
@@ -596,25 +677,27 @@ function loadScript(jsUrl, cssUrl, callback) {
 	head.appendChild(script);
 }
 /**
- * options object. The following members can be provided:
- *    url: iframe url to load
- *    message: instead of a url to open, you could pass a message. HTML tags allowed.
- *    id: id attribute of modal window. auto-generated if not provided
- *    title: optional modal window title
- *    size: 'default', 'full'
- *    noAnimation: optional, default is false. Set to true to disable animation effect while modal is launched
- *    show: optional function to execute after showing the modal
- *    close: optional function to execute after closing the modal
- *    footer: optional array of objects describing the buttons to display in the footer.
- *       Each button object can have the following members:
- *          label: string, label of button
- *          bs_class: string, button bootstrap class. Can be 'primary', 'default', 'success', 'warning' or 'danger'
- *          click: function to execute on clicking the button. If the button closes the modal, this
- *                 function is executed before the close handler
- *          causes_closing: boolean, default is true.
+ * Opens a modal window with the specified options.
+ * 
+ * @param {Object} options An object specifying the configuration of the modal. The following members can be provided:
+ * @param {string} [options.url] The iframe URL to load.
+ * @param {string} [options.message] Instead of a URL to open, you could pass a message. HTML tags are allowed.
+ * @param {string} [options.id] The id attribute of the modal window. Auto-generated if not provided.
+ * @param {string} [options.title] Optional modal window title.
+ * @param {'default'|'full'} [options.size] The size of the modal. Can be 'default' or 'full'.
+ * @param {boolean} [options.noAnimation=false] Set to true to disable the animation effect while launching the modal.
+ * @param {Function} [options.show] Optional function to execute after showing the modal.
+ * @param {Function} [options.close] Optional function to execute after closing the modal.
+ * @param {Array<Object>} [options.footer] Optional array of objects describing the buttons to display in the footer.
+ * @param {string} options.footer[].label A string representing the label of the button.
+ * @param {'primary'|'default'|'success'|'warning'|'danger'} options.footer[].bs_class A string representing the button's Bootstrap class.
+ * @param {Function} [options.footer[].click] A function to execute on clicking the button. If the button closes the modal, this function is executed before the close handler.
+ * @param {boolean} [options.footer[].causes_closing=true] A boolean indicating whether clicking the button causes the modal to close.
+ * 
+ * @returns {string} The id attribute of the modal window.
  */
 function modal_window(options) {
-	return jQuery('body').agModal(options).agModal('show').attr('id');
+	return $j('body').agModal(options).agModal('show').attr('id');
 }
 
 function random_string(string_length) {
@@ -631,22 +714,22 @@ function random_string(string_length) {
  *  @return array of IDs (PK values) of selected records in TV (records that the user checked)
  */
 function get_selected_records_ids() {
-	return jQuery('.record_selector:checked').map(function() { return jQuery(this).val() }).get();
+	return $j('.record_selector:checked').map(function() { return $j(this).val() }).get();
 }
 
 function print_multiple_dv_tvdv(t, ids) {
-	document.myform.NoDV.value=1;
-	document.myform.PrintDV.value=1;
-	document.myform.SelectedID.value = '';
-	document.myform.submit();
+	document.forms[0].NoDV.value=1;
+	document.forms[0].PrintDV.value=1;
+	document.forms[0].SelectedID.value = '';
+	document.forms[0].submit();
 	return true;
 }
 
 function print_multiple_dv_sdv(t, ids) {
-	document.myform.NoDV.value=1;
-	document.myform.PrintDV.value=1;
-	document.myform.writeAttribute('novalidate', 'novalidate');
-	document.myform.submit();
+	document.forms[0].NoDV.value=1;
+	document.forms[0].PrintDV.value=1;
+	document.forms[0].setAttribute('novalidate', 'novalidate');
+	document.forms[0].submit();
 	return true;
 }
 
@@ -683,8 +766,8 @@ function mass_delete(t, ids) {
 								'<div class="progress-bar progress-bar-warning" role="progressbar" style="width: 0;"></div>' +
 							'</div>' + 
 							'<button type="button" class="btn btn-default details_toggle" onclick="' +
-								'jQuery(this).children(\'.glyphicon\').toggleClass(\'glyphicon-chevron-right glyphicon-chevron-down\'); ' +
-								'jQuery(\'.well.details_list\').toggleClass(\'hidden\');'
+								'$j(this).children(\'.glyphicon\').toggleClass(\'glyphicon-chevron-right glyphicon-chevron-down\'); ' +
+								'$j(\'.well.details_list\').toggleClass(\'hidden\');'
 								+ '">' +
 								'<i class="glyphicon glyphicon-chevron-right"></i> ' +
 								AppGini.Translate._map['Show/hide details'] +
@@ -711,15 +794,15 @@ function mass_delete(t, ids) {
 							data: { delete_x: 1, SelectedID: ids[itrn], csrf_token: $j('#csrf_token').val() },
 							success: function(resp) {
 								if(resp != 'OK') {
-									jQuery('<li class="text-danger">' + resp + '</li>').appendTo('.well.details_list ol');
+									$j('<li class="text-danger">' + resp + '</li>').appendTo('.well.details_list ol');
 									return;
 								}
 
-								jQuery('<li class="text-success">' + AppGini.Translate._map['The record has been deleted successfully'] + '</li>')
+								$j('<li class="text-success">' + AppGini.Translate._map['The record has been deleted successfully'] + '</li>')
 									.appendTo('.well.details_list ol');
-								jQuery('#record_selector_' + ids[itrn])
+								$j('#record_selector_' + ids[itrn])
 									.prop('checked', false).parent().parent().fadeOut(1500);
-								jQuery('#select_all_records').prop('checked', false);
+								$j('#select_all_records').prop('checked', false);
 
 								// decrement record count
 								let recCount = $j('.record-count').text().replace(/\D/g, ''),
@@ -729,11 +812,11 @@ function mass_delete(t, ids) {
 								$j('.last-record').text(parseInt(lastRec) - 1);
 							},
 							error: function() {
-								jQuery('<li class="text-warning">' + AppGini.Translate._map['Connection error'] + '</li>')
+								$j('<li class="text-warning">' + AppGini.Translate._map['Connection error'] + '</li>')
 									.appendTo('.well.details_list ol');
 							},
 							complete: function() {
-								jQuery('#' + progress_window + ' .progress-bar')
+								$j('#' + progress_window + ' .progress-bar')
 									.attr('style', 'width: ' + (Math.round((itrn + 1) / ids.length * 100)) + '%;')
 									.html(progress.replace(/\<i\>/, (itrn + 1)));
 
@@ -742,17 +825,17 @@ function mass_delete(t, ids) {
 									return;
 								}
 
-								if(jQuery('.well.details_list li.text-danger, .well.details_list li.text-warning').length) {
-									jQuery('button.details_toggle')
+								if($j('.well.details_list li.text-danger, .well.details_list li.text-warning').length) {
+									$j('button.details_toggle')
 										.removeClass('btn-default').addClass('btn-warning')
 										.click();
-									jQuery('.btn-warning[id^=' + progress_window + '_footer_button_]')
+									$j('.btn-warning[id^=' + progress_window + '_footer_button_]')
 										.toggleClass('btn-warning btn-default')
 										.html(AppGini.Translate._map['ok']);
 									return;
 								}
 
-								setTimeout(function() { jQuery('#' + progress_window).agModal('hide'); }, 500);
+								setTimeout(function() { $j('#' + progress_window).agModal('hide'); }, 500);
 							}
 						});
 					}
@@ -791,7 +874,7 @@ function mass_change_owner(t, ids) {
 				bs_class: 'success',
 				// on confirming, start update operations
 				click: function() {
-					var memberID = jQuery('input[name=new_owner_for_selected_records]').eq(0).val();
+					var memberID = $j('input[name=new_owner_for_selected_records]').eq(0).val();
 					if(!memberID.length) return;
 
 					// show update progress, allowing user to abort operations by closing the window or clicking cancel
@@ -802,8 +885,8 @@ function mass_change_owner(t, ids) {
 								'<div class="progress-bar progress-bar-success" role="progressbar" style="width: 0;"></div>' +
 							'</div>' + 
 							'<button type="button" class="btn btn-default details_toggle" onclick="' +
-								'jQuery(this).children(\'.glyphicon\').toggleClass(\'glyphicon-chevron-right glyphicon-chevron-down\'); ' +
-								'jQuery(\'.well.details_list\').toggleClass(\'hidden\');'
+								'$j(this).children(\'.glyphicon\').toggleClass(\'glyphicon-chevron-right glyphicon-chevron-down\'); ' +
+								'$j(\'.well.details_list\').toggleClass(\'hidden\');'
 								+ '">' +
 								'<i class="glyphicon glyphicon-chevron-right"></i> ' +
 								AppGini.Translate._map['Show/hide details'] +
@@ -836,20 +919,20 @@ function mass_change_owner(t, ids) {
 							},
 							success: function(resp) {
 								if(resp != 'OK') {
-									jQuery(".well.details_list ol").append('<li class="text-danger">' + resp + '</li>');
+									$j(".well.details_list ol").append('<li class="text-danger">' + resp + '</li>');
 									return;
 								}
 
-								jQuery('<li class="text-success">' + AppGini.Translate._map['record updated'] + '</li>')
+								$j('<li class="text-success">' + AppGini.Translate._map['record updated'] + '</li>')
 									.appendTo(".well.details_list ol");
-								jQuery('#select_all_records, #record_selector_' + ids[itrn]).prop('checked', false);
+								$j('#select_all_records, #record_selector_' + ids[itrn]).prop('checked', false);
 							},
 							error: function() {
-								jQuery('<li class="text-warning">' + AppGini.Translate._map['Connection error'] + '</li>')
+								$j('<li class="text-warning">' + AppGini.Translate._map['Connection error'] + '</li>')
 									.appendTo(".well.details_list ol");
 							},
 							complete: function() {
-								jQuery('#' + progress_window + ' .progress-bar')
+								$j('#' + progress_window + ' .progress-bar')
 									.attr('style', 'width: ' + (Math.round((itrn + 1) / ids.length * 100)) + '%;')
 									.html(progress.replace(/\<i\>/, (itrn + 1)));
 
@@ -858,17 +941,17 @@ function mass_change_owner(t, ids) {
 									return;
 								}
 
-								if(jQuery('.well.details_list li.text-danger, .well.details_list li.text-warning').length) {
-									jQuery('button.details_toggle')
+								if($j('.well.details_list li.text-danger, .well.details_list li.text-warning').length) {
+									$j('button.details_toggle')
 										.removeClass('btn-default').addClass('btn-warning')
 										.click();
-									jQuery('.btn-warning[id^=' + progress_window + '_footer_button_]')
+									$j('.btn-warning[id^=' + progress_window + '_footer_button_]')
 										.toggleClass('btn-warning btn-default')
 										.html(AppGini.Translate._map['ok']);
 									return;
 								}
 
-								jQuery('button.btn-warning[id^=' + progress_window + '_footer_button_]')
+								$j('button.btn-warning[id^=' + progress_window + '_footer_button_]')
 									.toggleClass('btn-warning btn-success')
 									.html('<i class="glyphicon glyphicon-ok"></i> ' + AppGini.Translate._map['ok']);
 							}
@@ -888,7 +971,7 @@ function mass_change_owner(t, ids) {
 	/* show drop down of users */
 	var populate_new_owner_dropdown = function() {
 
-		jQuery('[id=new_owner_for_selected_records]').select2({
+		$j('[id=new_owner_for_selected_records]').select2({
 			width: '100%',
 			formatNoMatches: function(term) { return AppGini.Translate._map['No matches found!']; },
 			minimumResultsForSearch: 5,
@@ -902,7 +985,7 @@ function mass_change_owner(t, ids) {
 				results: function(resp, page) { return resp; }
 			}
 		}).on('change', function(e) {
-			jQuery('[name="new_owner_for_selected_records"]').val(e.added.id);
+			$j('[name="new_owner_for_selected_records"]').val(e.added.id);
 		});
 
 	}
@@ -914,7 +997,13 @@ function add_more_actions_link() {
 	window.open('https://bigprof.com/appgini/help/advanced-topics/hooks/multiple-record-batch-actions/?r=appgini-action-menu');
 }
 
-/* detect current screen size (xs, sm, md or lg) */
+/**
+ * Checks if the screen size matches the specified size identifier.
+ * 
+ * @param {string} sz - The screen size identifier to check. 
+ *                      Possible values: `'xs'` (extra small), `'sm'` (small), `'md'` (medium), `'lg'` (large).
+ * @returns {boolean} - Returns `true` if the specified screen size is visible, otherwise `false`.
+ */
 function screen_size(sz) {
 	if(!$j('.device-xs').length) {
 		$j('body').append(
@@ -941,14 +1030,15 @@ function enable_dvab_floating() {
 		}
 
 		/* get vscroll amount, DV form height, button toolbar height and position */
-		var vscroll = $j(window).scrollTop();
-		var dv_height = $j('[id$="_dv_form"]').eq(0).height();
-		var bt_height = $j('.detail_view .btn-toolbar').height();
-		var form_top = $j('.detail_view .form-group').eq(0).offset().top;
-		var bt_top_max = dv_height - bt_height - 10;
+		const navbarHeight = $j('.navbar-fixed-top').height() || 0;
+		const vscroll = $j(window).scrollTop();
+		const dv_height = $j('[id$="_dv_form"]').eq(0).height();
+		const bt_height = $j('.detail_view .btn-toolbar').height();
+		const form_top = $j('.detail_view .form-group').eq(0).offset().top;
+		const bt_top_max = dv_height - bt_height - 10;
 
-		if(vscroll > form_top) {
-			var tm = parseInt(vscroll - form_top) + 60;
+		if(vscroll > form_top - navbarHeight) {
+			var tm = parseInt(vscroll - form_top) + 60 + navbarHeight;
 			if(tm > bt_top_max) tm = bt_top_max;
 
 			$j('.detail_view .btn-toolbar').css({ 'margin-top': tm + 'px' });
@@ -960,77 +1050,50 @@ function enable_dvab_floating() {
 }
 
 /* check if a given field's value is unique and reflect this in the DV form */
-function enforce_uniqueness(table, field) {
-	$j('#' + field).on('change', function() {
-		/* check uniqueness of field */
-		var data = {
-			t: table,
-			f: field,
-			value: $j('#' + field).val()
-		};
-
-		if($j('[name=SelectedID]').val().length) data.id = $j('[name=SelectedID]').val();
-
-		$j.ajax({
-			url: 'ajax_check_unique.php',
-			data: data,
-			complete: function(resp) {
-				if(resp.responseJSON.result == 'ok') {
-					$j('#' + field + '-uniqueness-note').hide();
-					$j('#' + field).parents('.form-group').removeClass('has-error');
-				} else {
-					$j('#' + field + '-uniqueness-note').show();
-					$j('#' + field).parents('.form-group').addClass('has-error');
-					$j('#' + field).focus();
-					setTimeout(function() { $j('#update, #insert').prop('disabled', true); }, 500);
-				}
-			}
-		})
+function enforce_uniqueness(tableName, fieldName) {
+	$j(`#${fieldName}`).on('change', () => {
+		AppGini.checkUnique(tableName, fieldName);
 	});
 }
 
 /* persist expanded/collapsed chidren in DVP */
 function persist_expanded_child(id) {
-	var expand_these = JSON.parse(localStorage.getItem('OIM.dvp_expand'));
+	var expand_these = JSON.parse(localStorage.getItem(`${AppGini.config.appTitle}.dvp_expand`));
 	if(expand_these == undefined) expand_these = [];
 
 	if($j('[id=' + id + ']').hasClass('active')) {
 		if(expand_these.indexOf(id) < 0) {
 			// expanded button and not persisting in cookie? save it!
 			expand_these.push(id);
-			localStorage.setItem('OIM.dvp_expand', JSON.stringify(expand_these));
+			localStorage.setItem(`${AppGini.config.appTitle}.dvp_expand`, JSON.stringify(expand_these));
 		}
 	} else {
 		if(expand_these.indexOf(id) >= 0) {
 			// collapsed button and persisting in cookie? remove it!
 			expand_these.splice(expand_these.indexOf(id), 1);
-			localStorage.setItem('OIM.dvp_expand', JSON.stringify(expand_these));
+			localStorage.setItem(`${AppGini.config.appTitle}.dvp_expand`, JSON.stringify(expand_these));
 		}
 	}
 }
 
 /* apply expanded/collapsed status to children in DVP */
 function apply_persisting_children() {
-	var expand_these = JSON.parse(localStorage.getItem('OIM.dvp_expand'));
-	if(expand_these == undefined) return;
+	var expand_these = JSON.parse(localStorage.getItem(`${AppGini.config.appTitle}.dvp_expand`));
+	if(expand_these == undefined || !expand_these.length) return;
 
-	expand_these.each(function(id) {
+	expand_these.forEach(function(id) {
 		$j('[id=' + id + ']:not(.active)').click();
 	});
 }
 
-function select2_max_width_decrement() {
-	return ($j('div.container, div.container-fluid').eq(0).hasClass('theme-compact') ? 99 : 109);
-}
-
 /**
- *  @brief AppGini.TVScroll().more() to scroll one column more. 
- *         AppGini.TVScroll().less() to scroll one column less.
+ *  AppGini.TVScroll().more() to scroll one column more. 
+ *  AppGini.TVScroll().less() to scroll one column less.
  */
 AppGini.TVScroll = function() {
 
 	/**
-	 *  @brief Calculates the width of the first n columns of the TV table
+	 *  Calculates the width of the first n columns of the TV table
 	 *  
 	 *  @param [in] n how many columns to calculate the width for
 	 *  @return Return total width of given n columns, or 0 if n < 1 or invalid
@@ -1050,7 +1113,7 @@ AppGini.TVScroll = function() {
 	};
 
 	/**
-	 *  @brief show/hide tv-scroll buttons based on whether TV is horizontally scrollable or not
+	 *  show/hide tv-scroll buttons based on whether TV is horizontally scrollable or not
 	 *  @details should be called once on document load before hiding TV columns (by calling less())
 	 */
 	var toggle_tv_scroll_tools = function() {
@@ -1063,7 +1126,7 @@ AppGini.TVScroll = function() {
 	}
 
 	/**
-	 *  @brief Prepares variables for use by less & more
+	 *  Prepares variables for use by less & more
 	 */
 	var _TVScrollSetup = function() {
 		if(AppGini._TVColsScrolled === undefined) AppGini._TVColsScrolled = 0;
@@ -1097,7 +1160,7 @@ AppGini.TVScroll = function() {
 	};
 
 	/**
-	 *  @brief Resets all scrolling and setup values.
+	 *  Resets all scrolling and setup values.
 	 *  @details Useful after hiding/showing columns to re-setup TV scrolling
 	 */
 	var reset = function() {
@@ -1145,7 +1208,7 @@ AppGini.TVScroll = function() {
 	};
 
 	/**
-	 *  @brief Scroll the TV table 1 column more
+	 *  Scroll the TV table 1 column more
 	 */
 	var more = function() {
 		if(AppGini._TVColsScrolled >= AppGini._TVColsCount) return;
@@ -1154,7 +1217,7 @@ AppGini.TVScroll = function() {
 	};
 
 	/**
-	 *  @brief Scroll the TV table 1 column less
+	 *  Scroll the TV table 1 column less
 	 */
 	var less = function() {
 		if(AppGini._TVColsScrolled <= 0) return;
@@ -1296,13 +1359,13 @@ AppGini.TVScroll = function() {
 									'<iframe ' +
 										'width="100%" height="100%" ' +
 										'style="display: block; overflow: scroll !important; -webkit-overflow-scrolling: touch !important;" ' +
-										'sandbox="allow-modals allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads" ' +
+										'sandbox="allow-modals allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads allow-top-navigation-by-user-activation" ' +
 										'src="' + op.url + '">' +
 									'</iframe>'
 									: op.message
 								) +
 							'</div>' +
-							'<div class="modal-footer">' + footer_buttons + '</div>' +
+							(footer_buttons ? '<div class="modal-footer">' + footer_buttons + '</div>' : '') +
 						'</div>' +
 					'</div>' + 
 				'</div>'
@@ -1373,7 +1436,7 @@ AppGini.TVScroll = function() {
 									'<iframe ' +
 										'width="100%" height="100%" ' +
 										'style="display: block; overflow: scroll !important; -webkit-overflow-scrolling: touch !important;" ' +
-										'sandbox="allow-modals allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads" ' +
+										'sandbox="allow-modals allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads allow-top-navigation-by-user-activation" ' +
 										'src="' + op.url + '">' +
 									'</iframe>'
 									: op.message
@@ -1456,23 +1519,35 @@ AppGini.TVScroll = function() {
 })(jQuery);
 
 /**
- *  @brief Used in pages loaded inside modals (e.g. those with Embedded=1) to close the containing modal.
+ * Used in pages loaded inside modals (e.g. those with Embedded=1) to close the containing modal.
  */
 AppGini.closeParentModal = function() {
-	var pm = window.parent.jQuery(".modal:visible");
-	if(!pm.length) {
-		pm = window.parent.jQuery(".inpage-modal:visible");
-	}
+	const pm = AppGini.getParentModal();
+	if(!pm) return;
+	pm.agModal('hide');
+}
 
-	if(pm.length) pm.agModal('hide');
-	return;
+/**
+ * @return boolean indicating whether the current page is inside a modal or not
+ */
+AppGini.ImInsideModal = () => AppGini.getParentModal() !== null;
+
+/**
+ *  @return the parent modal element if any, null otherwise
+ */
+AppGini.getParentModal = () => {
+	if(!window.parent || !window.parent.$j) return null;
+
+	if(window.parent.$j('.modal:visible').length) return window.parent.$j('.modal:visible').eq(0);
+	if(window.parent.$j('.inpage-modal:visible').length) return window.parent.$j('.inpage-modal:visible').eq(0);
+	return null;
 }
 
 /**
  *  @return boolean indicating whether a modal is currently open or not
  */
 AppGini.modalOpen = function() { /* */
-	return jQuery('.modal-dialog:visible').length > 0 || jQuery('.inpage-modal-dialog:visible').length > 0;
+	return $j('.modal-dialog:visible').length > 0 || $j('.inpage-modal-dialog:visible').length > 0;
 };
 
 
@@ -1593,12 +1668,18 @@ AppGini.calculatedFields = {
 		if(!$j('.has-calculated-fields').length) return false;
 
 		// init TV update of calculated fields
-		AppGini.calculatedFields.updateServerSide(
+		if($j('.table_view').length) AppGini.calculatedFields.updateServerSide(
 			table, 
 			// array of record IDs
 			$j('.table_view tr[data-id]').map(function() {
 				return $j(this).data('id');
 			}).get()
+		);
+
+		// init DV update of calculated fields
+		if($j('.detail_view').length) AppGini.calculatedFields.updateServerSide(
+			table,
+			[AppGini.selectedID()]
 		);
 
 		// init child tabs update of calculated fields
@@ -1617,9 +1698,8 @@ AppGini.calculatedFields = {
 		if(childTables.length) return;
 
 		// init DV update of calculated fields
-		var selectedId = $j('input[name=SelectedID]').val();
-		if(undefined != selectedId)
-			AppGini.calculatedFields.updateServerSide(table, selectedId);
+		if(AppGini.selectedID().length)
+			AppGini.calculatedFields.updateServerSide(table, AppGini.selectedID());
 	},
 
 	updateServerSide: function(table, id) {
@@ -1894,7 +1974,7 @@ AppGini.alterDVTitleLinkToBack = function() {
 	if(!$j('[name=SelectedID]').length) return;
 	if(document.location.href.match(/[?&]SelectedID=/) !== null) return;
 
-	$j('.page-header > h1 > a').on('click', function(e) {
+	$j('body').on('click', 'a.title-link', function(e) {
 		e.preventDefault();
 		$j('#deselect').trigger('click');
 		return false;
@@ -1909,7 +1989,10 @@ AppGini.isRecordUpdated = () => {
 
 AppGini.lockUpdatesOnUserRequest = function() {
 	// if this is not DV of existing record where editing and saving a copy are both enabled, skip
-	if(!$j('#update').length || !$j('#insert').length || !$j('input[name=SelectedID]').val().length) return;
+	if(!$j('#update').length || !$j('#insert').length || !AppGini.selectedID().length) return;
+
+	// if screen size is xs, skip
+	if(screen_size('xs')) return;
 
 	// if lock behavior already implemented, skip
 	if($j('#update').hasClass('locking-enabled')) return;
@@ -1944,8 +2027,15 @@ AppGini.lockUpdatesOnUserRequest = function() {
 }
 
 /* function to focus a specific element of a form, given field name */
-AppGini.focusFormElement = function(tn, fn) {
+AppGini.focusFormElement = function(tn, fn, noDelay) {
 	if(AppGini.mobileDevice()) return;
+	if(!tn || !fn) return;
+
+	// if form inside modal, delay focus for 500ms to allow modal to open first
+	if(AppGini.ImInsideModal() && !noDelay) {
+		setTimeout(() => AppGini.focusFormElement(tn, fn, true), 500);
+		return;
+	}
 
 	// if we have a visible alert, don't scroll to focused element
 	const doScroll = ($j('.alert:visible').length == 0);
@@ -1988,11 +2078,14 @@ AppGini.scrollTo = function(id, useName) {
 	// https://stackoverflow.com/questions/5007530/how-do-i-scroll-to-an-element-using-javascript/11986374#11986374
 	var obj;
 	if(useName != undefined && useName)
-		obj = $j('[name="' + id + '"]').get(0);
+		obj = $j('[name="' + id + '"]');
 	else
-		obj = $j('#' + id).get(0);
+		obj = $j('#' + id);
 
-	AppGini.scrollToDOMElement(obj);
+	// if obj is invisible, scroll to its parent
+	if(obj.length && obj.is(':hidden'))    obj = obj.parent();
+
+	AppGini.scrollToDOMElement(obj.get(0));
 }
 
 AppGini.scrollToDOMElement = function(obj, shift) {
@@ -2014,9 +2107,9 @@ AppGini.errorField = function(id) {
 	AppGini.scrollTo(id);
 }
 AppGini.Validation = {
-	fieldRequired: function(type, name, caption) {
+	fieldRequired: function(type, name, caption, insertMode) {
 		var self = AppGini.Validation;
-		if(!self._empty[type](name)) return true;
+		if(!self._empty[type](name, insertMode)) return true;
 
 		var mow = modal_window({
 			message: '<div class="alert alert-danger">' + AppGini.Translate._map['field not null'] + '</div>',
@@ -2075,37 +2168,29 @@ AppGini.Validation = {
 		}
 	},
 	_empty: {
-		text: function(id) { return $j('#' + id).val() == ''; },
-		list: function(id) { return $j('#' + id).select2('val').length == 0; },
-		lookup: function(id) { return $j('#' + id + '-container').select2('data').id.length == 0; },
-		date: function(id) {
-			return (
-				$j('#' + id).val() == '' ||
-				$j('#' + id + '-mm').val() == '' ||
-				$j('#' + id + '-dd').val() == ''
-			);
+		text: (id, insertMode) => {
+			// if not in insert mode, skip fields with requests-geolocation-if-new class
+			if(!insertMode && $j(`#${id}`).hasClass('requests-geolocation-if-new'))
+				return false;
+			return $j(`#${id}`).val().trim() == '';
 		},
-		image: function(id) {
-			return (
-				$j('#' + id).val() == '' &&
-				$j('#' + id + '-image').attr('src').match(/blank\.gif/)
-			);
-		},
-		file: function(id) {
-			return $j('#' + id).val() == '' && !$j('#' + id + '-link:visible').length;
-		},
-		html: function(id) {
+		list: (id, insertMode) => $j(`#${id}`).select2('val').length == 0,
+		lookup: (id, insertMode) => $j(`#${id}-container`).select2('data').id.length == 0,
+		date: (id, insertMode) => $j(`#${id}`).val() == '' || $j(`#${id}-mm`).val() == '' || $j(`#${id}-dd`).val() == '',
+		image: (id, insertMode) => $j(`#${id}`).val() == '' && $j(`#${id}-image`).attr('src').match(/blank\.gif/),
+		file: (id, insertMode) => $j(`#${id}`).val() == '' && !$j(`#${id}-link:visible`).length,
+		html: (id, insertMode) => {
 			var nic = nicEditors.findEditor(id).getContent().trim();
-			return $j(nic).text() == '' && !nic.match(/<img /);
+			return $j(`<div>${nic}</div>`).text() == '' && !nic.match(/<img /);
 		},
-		datetime: function(id) { return $j('#' + id).val() == ''; },
-		checkbox: function(id) { return !$j('#' + id).prop('checked'); },
-		radio: function(id) { return !$j('[name="' + id + '"]:checked').length; }
+		datetime: (id, insertMode) => $j(`#${id}`).val().trim() == '',
+		checkbox: (id, insertMode) => !$j(`#${id}`).prop('checked'),
+		radio: (id, insertMode) => !$j(`[name="${id}"]:checked`).length
 	}
 }
 /* function to execute provided callback, passing provided params, if current view id detail view for a new record */
 AppGini.newRecord = function(callback, params) {
-	if($j('.detail_view').length && !$j('[name=SelectedID').val().length) {
+	if($j('.detail_view').length && !AppGini.selectedID().length) {
 		callback(params);
 	}
 }
@@ -2597,9 +2682,9 @@ AppGini.storedLayout = (val) => {
 	const view = $j('[name="current_view"]').val();
 
 	if(val !== undefined) {
-		localStorage.setItem(`OIM.${AppGini.currentTableName()}.${view}.layout`, val);
+		localStorage.setItem(`${AppGini.config.appTitle}.${AppGini.currentTableName()}.${view}.layout`, val);
 	}
-	return localStorage.getItem(`OIM.${AppGini.currentTableName()}.${view}.layout`);
+	return localStorage.getItem(`${AppGini.config.appTitle}.${AppGini.currentTableName()}.${view}.layout`);
 }
 
 AppGini.renderDVLayoutToolbar = () => {
@@ -2631,6 +2716,19 @@ AppGini.renderDVLayoutToolbar = () => {
 	} else if(dvLayout == 'triple-column-layout' && windowWidth >= 1700) {
 		AppGini.applyTripleColumnLayout();
 	}
+
+	// handle click on layout toolbar buttons
+	$j('.detail_view-layout').on('click', 'a', function(e) {
+		e.preventDefault();
+
+		if($j(this).hasClass('switch-to-single-column-layout')) {
+			AppGini.applySingleColumnLayout();
+		} else if($j(this).hasClass('switch-to-double-column-layout')) {
+			AppGini.applyDoubleColumnLayout();
+		} else if($j(this).hasClass('switch-to-triple-column-layout')) {
+			AppGini.applyTripleColumnLayout();
+		}
+	});
 }
 
 AppGini.applySingleColumnLayout = () => {
@@ -2769,9 +2867,9 @@ AppGini.preparePagesMenu = (recordsPerPage, pagesMenuId, lastPage, currentPage, 
 
 AppGini.storedRecordsPerPage = (val) => {
 	if(val !== undefined) {
-		localStorage.setItem(`OIM.${AppGini.currentTableName()}.recordsPerPage`, val);
+		localStorage.setItem(`${AppGini.config.appTitle}.${AppGini.currentTableName()}.recordsPerPage`, val);
 	}
-	return localStorage.getItem(`OIM.${AppGini.currentTableName()}.recordsPerPage`);
+	return localStorage.getItem(`${AppGini.config.appTitle}.${AppGini.currentTableName()}.recordsPerPage`);
 }
 
 AppGini.renderTVRecordsPerPageSelector = () => {
@@ -2824,6 +2922,14 @@ AppGini.renderTVRecordsPerPageSelector = () => {
 		// set RecordsPerPage hidden field value
 		parentForm.find('input[name=RecordsPerPage]').val(newRecordsPerPage);
 
+		// if the url includes special parameters, add them to the form
+		const url = new URL(window.location.href);
+		['record-added-ok', 'record-added-error', 'record-updated-ok', 'record-updated-error', 'record-deleted-ok', 'record-deleted-error', 'error_message'].forEach(param => {
+			if(!url.searchParams.has(param)) return;
+			const safeValue = url.searchParams.get(param).replace(/"/g, '&quot;');
+			parentForm.append(`<input type="hidden" name="${param}" value="${safeValue}">`);
+		});
+
 		// submit the form
 		parentForm.submit();
 	});
@@ -2845,7 +2951,7 @@ AppGini.currentViewIs = (view) => $j('#current_view').val()?.toLowerCase() == vi
 
 AppGini.appendRecordsPerPageToTableLinks = () => {
 	// find stored records per page and extract table names from keys
-	Object.keys(localStorage).filter(k => k.match(/OIM\..*?\.recordsPerPage/)).forEach(k => {
+	Object.keys(localStorage).filter(k => k.match(new RegExp(`${AppGini.config.appTitle}\\..*?\\.recordsPerPage`))).forEach(k => {
 		const tableName = k.split('.')[1];
 		$j(`a[href*="/${tableName}_view.php"], a[href^="${tableName}_view.php"]`).each(function() {
 			const href = new URL($j(this).attr('href'), window.location.href);
@@ -2853,4 +2959,776 @@ AppGini.appendRecordsPerPageToTableLinks = () => {
 			$j(this).attr('href', href.toString());
 		});
 	});
+}
+
+/**
+ * detect if current form has elements requesting geolocation
+ * @param {boolean} autoOnly true if only automatic geolocation fields should be considered
+ * @returns {boolean} true if at least one element requests geolocation
+ */
+AppGini.formHasGeolocationFields = (autoOnly = false) => {
+	// if no editable/insertable record, return
+	if(!$j('#insert').length && !$j('#update').length) return false;
+
+	return $j('input.requests-geolocation').length // at least one field requests geolocation on insert/update
+		|| ($j('input.requests-geolocation-if-new').length && $j('#insert').length) // at least one field requests geolocation on insert, and we're in insert mode
+		|| ($j('.capture-geolocation:visible').length && !autoOnly); // at least one field requests geolocation on demand
+}
+
+/**
+ * detect if current form has elements requesting geolocation that are required
+ * @param {boolean} insertMode true if form is in insert mode
+ * @returns {boolean} true if at least one element requests geolocation and is required
+ */
+AppGini.formRequiresGeolocation = (insertMode = false) => {
+	if(!AppGini.formHasGeolocationFields()) return false;
+
+	return $j('input.requests-geolocation[required]').length // at least one required field requests geolocation
+		|| ($j('input.requests-geolocation-if-new[required]').length && insertMode); // at least one required field requests geolocation on insert, and we're in insert mode
+}
+
+/**
+ * Populate automatic geolocation fields with current geolocation.
+ * @param {function} callback function to call after populating fields. The callback receives an integer flag indicating the result:
+ * NO_GEOLOCATION_THOUGH_REQUIRED, geolocation not supported/granted and at least one required field requests geolocation
+ * NO_GEOLOCATION, geolocation not supported/granted or no automatic geolocation fields
+ * GEOLOCATION_POPULATED, geolocation fields successfully populated
+ * @param {boolean} insertMode true if form is in insert mode
+ */
+AppGini.populateAutomaticGeolocationFields = (callback, insertMode = false) => {
+	// if no automatic geolocation fields, return
+	if(!AppGini.formHasGeolocationFields(true)) {
+		callback(NO_GEOLOCATION);
+		return;
+	}
+
+	// is geolocation required?
+	const geolocationRequired = AppGini.formRequiresGeolocation(insertMode);
+
+	// get geolocation
+	const geolocation = navigator.geolocation;
+	if(!geolocation && geolocationRequired) {
+		callback(NO_GEOLOCATION_THOUGH_REQUIRED);
+		return;
+	}
+
+	if(!geolocation) {
+		callback(NO_GEOLOCATION);
+		return;
+	}
+
+	// get current geolocation
+	geolocation.getCurrentPosition(
+		(position) => {
+			const geolocationFields = `input.requests-geolocation${insertMode ? ', input.requests-geolocation-if-new' : ''}`;
+			const lat = position.coords.latitude;
+			const lng = position.coords.longitude;
+
+			// populate geolocation fields
+			$j(geolocationFields).each(function() {
+				const input = $j(this);
+				// set value to Google maps link with marker at current location
+				const value = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+				input.val(value);
+			});
+
+			callback(GEOLOCATION_POPULATED);
+		},
+		(error) => {
+			if(geolocationRequired) {
+				callback(NO_GEOLOCATION_THOUGH_REQUIRED);
+				return;
+			}
+
+			callback(NO_GEOLOCATION);
+		}
+	);
+}
+
+/**
+ * Define event handler for capturing geolocation on demand.
+ * This function can be called only once. Subsequent calls are ignored.
+ */
+AppGini.handleCaptureLocation = () => {
+	// call only once
+	if(AppGini._handleCaptureLocationCalled) return;
+	AppGini._handleCaptureLocationCalled = true;
+
+	// if no capture location buttons, return
+	if(!$j('.capture-geolocation').length) return;
+
+	// if no editable/insertable record, return
+	if(!$j('#insert').length && !$j('#update').length) return;
+
+	// handle click on capture location buttons
+	$j('.capture-geolocation').on('click', function(e) {
+		e.preventDefault();
+
+		const me = $j(this);
+		const formGroup = me.closest('.form-group');
+		const errorDiv = formGroup.find('.geolocation-error');
+
+		// remove error clues
+		errorDiv.addClass('hidden');
+		formGroup.removeClass('has-error');
+
+		// if no geolocation, return
+		if(!navigator.geolocation) {
+			errorDiv.removeClass('hidden');
+			formGroup.addClass('has-error');
+			return;
+		}
+
+		me.prop('disabled', true);
+
+		// get current geolocation
+		navigator.geolocation.getCurrentPosition(
+			(position) => {
+				const lat = position.coords.latitude;
+				const lng = position.coords.longitude;
+
+				// set value of the nearest input field to Google maps link with marker at current location
+				formGroup.find('input').val(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
+
+				// find nearest .googlemap-container and replace its content with a Google map iframe
+				const googleMapContainer = formGroup.find('.googlemap-container');
+				if(googleMapContainer.length) {
+					googleMapContainer.html(`
+						<iframe
+							allowfullscreen
+							loading="lazy" 
+							frameborder="0" 
+							style="border: none; width: 100%; height: 300px;" 
+							src="https://www.google.com/maps/embed/v1/place?key=${AppGini.config.googleAPIKey}&q=${lat},${lng}&zoom=15&maptype=roadmap">
+						</iframe>
+					`);
+				}
+
+				me.prop('disabled', false);
+			},
+			(error) => {
+				errorDiv.removeClass('hidden');
+				formGroup.addClass('has-error');
+				me.prop('disabled', false);
+			}
+		);
+	});
+}
+
+/**
+ * Handle form submission in detail view.
+ * @param {Event} e The form submission event.
+ * @param {boolean} insertMode true if form submission purpose is to insert a new record. false if to update an existing record.
+ */
+AppGini.handleSubmitRecord = (e, insertMode) => {
+	e.preventDefault();
+
+	const form = e.target.closest('form'), 
+		table = AppGini.currentTableName(),
+		validationFunction = window[`${table}_validateData`],
+		/*
+		 * custom validation function should return true if all custom validations pass,
+		 * or false if any custom validation fails.
+		 * 
+		 * function signature: {tableName}_customValidateData(insertMode) => boolean
+		 * 
+		 * @param {boolean} insertMode true if form is in insert mode, false if in update mode
+		 * 
+		 * You can define custom validation functions in any of the following locations:
+		 * 
+		 * hooks/header-extras.php,
+		 * hooks/footer-extras.php,
+		 * {tableName}-dv.js,
+		 * {tableName}_dv() in hooks/{tableName}.php
+		 */
+		customValidationFunction = window[`${table}_customValidateData`] || (() => true)
+		actionButtons = $j(`#${table}_dv_action_buttons button`);
+
+	// disable all action buttons during form submission
+	actionButtons.prop('disabled', true);
+
+	// if there are nicEditors, update textarea values before submitting the form
+	nicEditors?.editors?.forEach(editor => {
+		editor.nicInstances?.forEach(nic => {
+			nic.saveContent();
+		});
+	});
+
+	// check if all unique fields are actually unique
+	const uniqueFields = window[`${table}UniqueFields`] || [];
+	for(const fieldName of uniqueFields) {
+		// exclude selected record ID from uniqueness check if in update mode
+		// and perform a synchronous check to prevent form submission if not unique
+		if(!AppGini.checkUnique(table, fieldName, !insertMode, false)) {
+			actionButtons.prop('disabled', false);
+			return;
+		}
+	}
+
+	AppGini.populateAutomaticGeolocationFields((result) => {
+		if(result == NO_GEOLOCATION_THOUGH_REQUIRED) {
+			// geolocation required but not supported/granted
+			AppGini.modalError(AppGini.Translate._map['You must allow the browser to capture your location']);
+			actionButtons.prop('disabled', false);
+			return;
+		}
+
+		// whether no geolocation or geolocation not granted (and not required),
+		// or geolocation fields successfully populated,
+		// call validation functions and if all pass, submit the form
+		if(!validationFunction(insertMode) || !customValidationFunction(insertMode)) {
+			actionButtons.prop('disabled', false);
+			return;
+		}
+
+		// add insert_x=1 or update_x=1 to form data based on insertMode
+		$j(`<input type="hidden" name="${insertMode ? 'insert' : 'update'}_x" value="1">`).appendTo(form);
+
+		AppGini.suppressBeforeUnloadWarning = true;
+
+		form.submit();
+	}, insertMode);
+}
+
+/**
+ * Displays a modal window with the provided error message.
+ * @param {string} message The error message to display in the modal window.
+ */
+AppGini.modalError = (message) => {
+	const modalId = modal_window({ message });
+	$j(`#${modalId} .modal-body`)
+		.addClass('alert alert-danger')
+		.css('margin', '0')
+		.append('<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>');
+}
+
+AppGini.handleDVFormChange = () => {
+	// run only once
+	if(AppGini._handleDVFormChangeApplied != undefined) return;
+	AppGini._handleDVFormChangeApplied = true;
+
+	// if no #insert or #update buttons, return
+	if(!$j('#insert').length && !$j('#update').length) return;
+
+	$j('form').eq(0).on('change', function() {
+		if($j(this).data('already_changed')) return;
+
+		if($j('#deselect').length) {
+			$j('#deselect')
+				.removeClass('btn-default')
+				.addClass('btn-warning')
+				.get(0).lastChild.data = ` ${AppGini.Translate._map['Cancel']}`;
+		}
+
+		// handle onbeforeunload event to warn user before leaving the page without saving changes
+		window.onbeforeunload = (e) => {
+			// if AppGini.suppressBeforeUnloadWarning is not set (i.e. requested action is not insert/update/delete),
+			// warn user before leaving the page
+			if(!AppGini.suppressBeforeUnloadWarning) {
+				e.preventDefault();
+				e.returnValue = AppGini.Translate._map['discard changes confirm'];
+				return e.returnValue;
+			}
+		}  
+
+		$j(this).data('already_changed', true);
+	});
+}
+
+AppGini.handleDVFormSubmission = () => {
+	// run only once
+	if(AppGini._handleDVFormSubmissionApplied != undefined) return;
+	AppGini._handleDVFormSubmissionApplied = true;
+
+	// disable form validation on form submission via any button other than #insert or #update
+	$j('form').eq(0).on('click', ':not([id=insert],[id=update])', function() {
+		$j(this).closest('form').attr('novalidate', 'novalidate');
+	});
+}
+
+/**
+ * Retrive the ID of the selected record in the current detail view.
+ * @returns {string} The ID of the selected record in the current detail view. If no record is selected, an empty string is returned.
+ */
+AppGini.selectedID = () => {
+	const selectedID = $j('input[name=SelectedID]').val();
+	return selectedID ? selectedID : '';
+}
+
+/**
+ * Check if user-provided value of a field is unique in the table.
+ * @param {string} tableName The name of the table to check uniqueness in.
+ * @param {string} fieldName The name of the field to check uniqueness for.
+ * @param {boolean} excludeSelectedID Whether to exclude the selected record ID from the uniqueness check. This is useful when updating an existing record. Default is true.
+ * @param {boolean} async Whether to run the check asynchronously. Default is true.
+ * @returns {boolean} true if the field value is unique or empty, false otherwise. This is returned only if the function is run synchronously. If the function is run asynchronously, no return value is provided.
+ */
+AppGini.checkUnique = (tableName, fieldName, excludeSelectedID = true, async = true) => {
+	/* check uniqueness of field */
+	var data = {
+		t: tableName,
+		f: fieldName,
+		value: $j(`#${fieldName}`).val().trim(),
+	};
+
+	// return true if field is empty
+	if(!data.value.length) return async ? null : true;
+
+	if(excludeSelectedID && AppGini.selectedID().length) data.id = AppGini.selectedID();
+
+	let isUnique = true;
+
+	$j.ajax({
+		url: 'ajax_check_unique.php',
+		data: data,
+		async: async,
+		complete: function(resp) {
+			if(resp?.responseJSON?.result == 'ok') {
+				$j(`#${fieldName}-uniqueness-note`).hide();
+				$j(`#${fieldName}`).parents('.form-group').removeClass('has-error');
+			} else {
+				$j(`#${fieldName}-uniqueness-note`).show();
+				$j(`#${fieldName}`).parents('.form-group').addClass('has-error');
+				$j(`#${fieldName}`).focus();
+				setTimeout(function() { $j('#update, #insert').prop('disabled', true); }, 500);
+				isUnique = false;
+			}
+		}
+	})
+
+	if(!async) return isUnique; // return the result if the function is running in sync mode
+}
+
+/**
+ * Add quick action buttons to time fields in detail view.
+ * To alter the behavior of the quick action buttons, you can define the following configuration options in
+ * one of the following hooks files:
+ * - hooks/header-extras.php
+ * - hooks/footer-extras.php
+ * - hooks/{tableName}-dv.js
+ * - {tableName}_dv() function in hooks/{tableName}.php
+ * 
+ * AppGini.config.disableTimeFieldQuickActions: set to true to disable time field quick actions.
+ * AppGini.config.timeFieldMinutesStep: set to the number of minutes to increment/decrement the time by. Default is 5.
+ */
+AppGini.addTimeFieldQuickActions = () => {
+
+	setTimeout(() => {
+		// skip if AppGini.config.disableTimeFieldQuickActions is defined and set to true
+		if(AppGini.config.disableTimeFieldQuickActions ?? false) return;
+
+		const timeFormat = AppGini.datetimeFormat('t');
+		const minutesStep = AppGini.config.timeFieldMinutesStep || 5;
+
+		$j('input[type="text"]').each(function() {
+			const el = $j(this);
+			if(!el.data('timepicker')) return;
+
+			// execute this only once per input
+			if(el.data('quick-actions-added')) return;
+			el.data('quick-actions-added', true);
+
+			// wrap the input in an input-group div,
+			// and add buttons at the right to:
+			// - clear the input
+			// - set the input to the current time
+			// - increment the time by minutesStep minutes, approximating to the nearest minutesStep minutes
+			// - decrement the time by minutesStep minutes, approximating to the nearest minutesStep minutes
+			el.wrap('<div class="input-group"></div>');
+			const inputGroup = el.parent();
+
+			const clearButton = $j('<button type="button" class="btn btn-default"><i class="glyphicon glyphicon-remove"></i></button>');
+			const nowButton = $j('<button type="button" class="btn btn-default"><i class="glyphicon glyphicon-time"></i></button>');
+			const incButton = $j('<button type="button" class="btn btn-default"><i class="glyphicon glyphicon-chevron-up"></i></button>');
+			const decButton = $j('<button type="button" class="btn btn-default"><i class="glyphicon glyphicon-chevron-down"></i></button>');
+
+			clearButton.click(() => {
+				el.val('');
+				// trigger form change event
+				el.trigger('change');
+			});
+			nowButton.click(() => {
+				el.val(moment().format(timeFormat))
+				// trigger form change event
+				el.trigger('change');
+			});
+			incButton.click(() => {
+				// skip if no time is entered
+				if(el.val().length < 5) return;
+
+				// parse the time entered based on the current time format
+				const initialTime = moment(el.val(), timeFormat);
+
+				// skip if the time entered is invalid
+				if(!initialTime.isValid()) return;
+
+				// increment the time by minutesStep minutes, approximating to the nearest minutesStep minutes
+				// and set seconds to 0
+				const initialMinutes = initialTime.minutes();
+				let time = initialTime.clone().seconds(0);
+				let minutes = Math.floor(initialTime.minutes() / minutesStep) * minutesStep;
+				minutes = (minutes + minutesStep) % 60;
+				if(minutes < initialMinutes) {
+					time = time.hours(time.hours() + 1).minutes(minutes);
+				} else {
+					time = time.minutes(minutes);
+				}
+
+				// format the time according to the current time format
+				el.val(time.format(timeFormat));
+
+				// trigger form change event
+				el.trigger('change');
+			});
+			decButton.click(() => {
+				// skip if no time is entered
+				if(el.val().length < 5) return;
+
+				// parse the time entered based on the current time format
+				const initialTime = moment(el.val(), timeFormat);
+
+				// skip if the time entered is invalid
+				if(!initialTime.isValid()) return;
+
+				// decrement the time by minutesStep minutes, approximating to the nearest minutesStep minutes
+				// and set seconds to 0
+				const initialMinutes = initialTime.minutes();
+				let time = initialTime.clone().seconds(0);
+				let minutes = Math.floor(initialTime.minutes() / minutesStep) * minutesStep;
+				minutes = (minutes - minutesStep + 60) % 60;
+				if(minutes > initialMinutes) {
+					time = time.hours(time.hours() - 1).minutes(minutes);
+				} else {
+					time = time.minutes(minutes);
+				}
+
+				// format the time according to the current time format
+				el.val(time.format(timeFormat));
+
+				// trigger form change event
+				el.trigger('change');
+			});
+
+			const inputGroupBtns = $j('<span class="input-group-btn"></span>');
+
+			inputGroupBtns
+				.append(clearButton)
+				.append(nowButton)
+				.append(incButton)
+				.append(decButton)
+
+			inputGroup.append(inputGroupBtns);
+		})
+	}, 400); // wait for timepicker to initialize
+}
+
+
+/**
+ * Initializes the lightbox functionality for elements with `data-lightbox` attributes.
+ * This function should only be called once during the application's lifecycle.
+ * 
+ * The lightbox groups images by the value of the `data-lightbox` attribute and displays 
+ * them in a modal carousel. If there is only one image in the group, it is displayed 
+ * without the carousel. The modal title is determined based on associated elements 
+ * (e.g., a `<th>` with a class matching the lightbox group, or a `<label>` in the 
+ * closest `.form-group`).
+ * 
+ * @function
+ * @memberof AppGini
+ */
+AppGini.handleLightbox = () => {
+	// this function should be called only once
+	if(AppGini._handleLightboxCalled) return;
+	AppGini._handleLightboxCalled = true;
+
+	$j('body').on('click', 'a[data-lightbox]', function(e) {
+		e.preventDefault();
+
+		const lightboxGroup = $j(this).data('lightbox');
+
+		// build array of images in the lightbox group
+		const images = [];
+		$j(`a[data-lightbox="${lightboxGroup}"]`).each(function() {
+			const img = $j(this).attr('href');
+			images.push(img);
+		});
+
+		// current image index
+		const currentIndex = images.indexOf($j(this).attr('href'));
+
+		// build lightbox modal options
+		const uniqueId = `lightbox-${lightboxGroup}-${Math.random().toString(36).substring(7)}`;
+		const modalOptions = {
+			message: `
+				<div id="${uniqueId}" class="carousel slide lightbox-carousel" data-ride="carousel" data-interval="" style=" 
+					height: 100%; 
+					display: flex; 
+					align-items: center; 
+					justify-content: center;
+				">
+					${
+						images.length <= 20
+							? `
+								<ol class="carousel-indicators" style="background: rgba(0, 0, 0, 0.25); padding: 1em; border-radius: 1em; position: absolute; bottom: 0;">
+									${images.map((_, i) => `
+										<li data-target="#${uniqueId}" data-slide-to="${i}" class="${i === currentIndex ? 'active' : ''}"></li>
+									`).join('')}
+								</ol>
+							`
+							: ''
+					}
+					<div class="carousel-inner">
+						${images.map((img, i) => `
+							<div class="item ${i == currentIndex ? 'active' : ''}">
+								<img src="${img}" class="img-responsive center-block" alt="">
+							</div>
+						`).join('')}
+					</div>
+					<a class="left carousel-control" href="#${uniqueId}" role="button" data-slide="prev">
+						<span class="glyphicon glyphicon-chevron-left" aria-hidden="true"></span>
+						<span class="sr-only">Previous</span>
+					</a>
+					<a class="right carousel-control" href="#${uniqueId}" role="button" data-slide="next">
+						<span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
+						<span class="sr-only">Next</span>
+					</a>
+				</div>
+			`,
+			size: 'full',
+		};
+
+		// if only one image, show it in a modal window
+		if(images.length == 1) {
+			modalOptions.message = `<div class="lightbox-image"><img src="${images[0]}" class="img-responsive center-block" alt=""></div>`;
+			//modalOptions.size = 'default';
+		}
+
+		// if we have a th with class same as the lightbox group, use it as modal title
+		const th = $j(`th.${lightboxGroup}`);
+		if(th.length) {
+			modalOptions.title = th.text().trim();
+		} else if(images.length == 1) {
+			// try label of parent form-group
+			const formGroup = $j(this).closest('.form-group');
+			const label = formGroup.find('label');
+			if(label.length) {
+				modalOptions.title = label.eq(0).text().trim();
+			}
+		} else {
+			// try first text node in the page heading
+			const h1 = document.querySelector('h1');
+			if(h1.length) {
+				// only text of the h1, excluding any child elements
+				modalOptions.title = h1.childNodes[0].textContent.trim();
+			}
+		}
+
+		// show modal
+		modal_window(modalOptions);
+	});
+}
+
+AppGini.enhanceNavbarToggle = () => {
+	// call only once
+	if(AppGini._enhanceNavbarToggleCalled) return;
+	AppGini._enhanceNavbarToggleCalled = true;
+
+	$j('.navbar-toggle').on('click', () => {
+		$j('.navbar-toggle .glyphicon').toggleClass('glyphicon-menu-hamburger glyphicon-remove');
+	});
+}
+
+AppGini.fixDVActionButtonsToBottom = () => {
+	// call only once
+	if(AppGini._fixDVActionButtonsToBottomCalled) return;
+	AppGini._fixDVActionButtonsToBottomCalled = true;
+
+	const topNavbarBGColor = () => {
+		let refElement = $j('.navbar-fixed-top');
+		if(!refElement.length) refElement = $j('body');
+
+		let bgColor = refElement.css('background-color');
+
+		// remove transparency if any
+		if(bgColor.startsWith('rgba')) {
+			bgColor = bgColor.replace(/[^,]+(?=\))/, '1');
+		}
+
+		return bgColor;
+	}
+
+	setTimeout(() => {
+		// if mobile view, adjust DV action buttons to be a navbar.navbar-fixed-bottom
+		if(!screen_size('xs')) return;
+
+		const dvActionButtons = $j('.dv-action-buttons');
+		if(!dvActionButtons.length) return;
+
+		dvActionButtons
+			.addClass('navbar navbar-fixed-bottom')
+			.removeClass('col-md-4 col-lg-2')
+			.css({
+				padding: '.25em 0',
+				width: '100%',
+				textAlign: 'center',
+				backgroundColor: topNavbarBGColor(),
+				// top shadow
+				boxShadow: '0 -1px 5px rgba(0, 0, 0, 0.1)',
+				zIndex: 2000, // to be above powered by and any other elements
+			})
+
+		const btnContainer = $j('<div class="btn-group"></div>');
+		btnContainer.appendTo(dvActionButtons);
+
+		const prepBtn = (btnSelector) => {
+			const btn = dvActionButtons.find(btnSelector);
+			if(!btn.length) return;
+
+			btn.addClass('btn-lg').appendTo(btnContainer);
+
+			// remove non-html nodes from btn
+			const btnNodes = btn[0].childNodes;
+			let hasTextNodes = true;
+			while(hasTextNodes) {
+				hasTextNodes = false;
+				for(let i = 0; i < btnNodes.length; i++) {
+					if(btnNodes[i].nodeType != 3) continue;
+					hasTextNodes = true;
+					btnNodes[i].remove();
+					break; // restart loop
+				}
+			}              
+
+			// clear special css
+			btn.css({ margin: 0, padding: '', width: ''    });
+		}
+
+		[
+			'#deselect', '#update', '#delete', '#insert', 
+			'#dvprint', '[name=setSelectedIDPreviousPage]', '[name=previousRecordDV]', '[name=setSelectedIDNextPage]', '[name=nextRecordDV]',
+		].forEach(btn => prepBtn(btn));
+
+		// if both #update and #insert are present, hide both
+		// and add a new button `#update-insert` after the `#deselect` button
+		// to display a dropdown with both buttons in order to confirm the exact action
+		// that the user wants to take
+		const updateBtn = dvActionButtons.find('#update');
+		const insertBtn = dvActionButtons.find('#insert');
+		if(updateBtn.length && insertBtn.length) {
+			btnContainer.addClass('dropup');
+			const updateInsertBtn = $j(`
+				<button 
+					class="btn btn-lg btn-success dropdown-toggle" 
+					data-toggle="dropdown" 
+					style="border-radius: 0;" 
+					>
+						<i class="glyphicon glyphicon-ok"></i>
+						<i class="caret"></i>
+				</button>
+				<ul class="dropdown-menu" style="width: 100%;">
+					<li id="update-li"></li>
+					<li id="insert-li"></li>
+				</ul>
+			`);
+			updateInsertBtn.insertAfter(dvActionButtons.find('#deselect'));
+
+			updateBtn.css({margin: '', width: 'calc(100% - 2em)' }).addClass('hspacer-lg tspacer-lg').appendTo('#update-li');
+			updateBtn.find('i').after(` ${AppGini.Translate._map['save changes']}` || '');
+			insertBtn.css({margin: '', width: 'calc(100% - 2em)' }).addClass('hspacer-lg vspacer-lg').appendTo('#insert-li');
+			insertBtn.find('i').after(` ${AppGini.Translate._map['Save As Copy']}` || '');
+		}
+
+		// remove .btn-toolbar if empty
+		if(!dvActionButtons.find('.btn-toolbar').find('.btn').length) {
+			dvActionButtons.find('.btn-toolbar').remove();
+		}
+	}, 50);
+}
+
+AppGini.promoteTableTitle = () => {
+	// if not mobile screen, return
+	if(!screen_size('xs')) return;
+
+	// if no .table-title, return
+	const tableTitle = $j('.page-header a.table-title');
+	if(!tableTitle.length) return;
+
+	// if no .navbar-sub-brand, return
+	const navbarSubBrand = $j('.navbar-sub-brand');
+	if(!navbarSubBrand.length) return;
+
+	// if .navbar-sub-brand has text, return
+	if(navbarSubBrand.text().trim().length) return;
+
+	// hide .table-title and move its content to .navbar-sub-brand
+	navbarSubBrand.html(tableTitle.html());
+	tableTitle.addClass('hidden');
+
+	// set href of .navbar-sub-brand to same as .table-title
+	navbarSubBrand.attr('href', tableTitle.attr('href'));
+
+	// unhide .navbar-sub-brand and .navbar-sub-brand-separator
+	navbarSubBrand.removeClass('hidden');
+	$j('.navbar-sub-brand-separator').removeClass('hidden');
+}
+
+AppGini.enhanceMobileUX = () => {
+	// if i'm inside a modal that is not yet fully shown, wait sometime to allow it have its full size then call this function again
+	// note: in-page modals don't have a transition effect, so no need to wait for them to be shown
+	const pm = AppGini.getParentModal();
+	if(pm && pm.hasClass('modal') && !AppGini._enhanceMobileUXModalDeferred) {
+		AppGini._enhanceMobileUXModalDeferred = true;
+		setTimeout(AppGini.enhanceMobileUX, 300);
+		return;
+	}
+
+	// call only once
+	if(AppGini._enhanceMobileUXCalled) return;
+	AppGini._enhanceMobileUXCalled = true;
+
+	// if not mobile view, return
+	if(!screen_size('xs')) return;
+
+	AppGini.enhanceNavbarToggle();
+	AppGini.fixDVActionButtonsToBottom();
+	AppGini.promoteTableTitle();
+	AppGini.noDVPanel();
+}
+AppGini.noDVPanel = () => {
+	// if not mobile screen, return
+	if(!screen_size('xs')) return;
+
+	const dvPanel = $j('.detail_view > .panel').eq(0);
+	if(!dvPanel.length) return;
+
+	dvPanel.find('.panel-heading').removeClass('panel-heading').addClass('xs-panel-heading');
+	dvPanel.find('.panel-title').removeClass('panel-title').addClass('xs-panel-title');
+	dvPanel.find('.panel-body').removeClass('panel-body').addClass('xs-panel-body');
+	dvPanel.removeClass('panel panel-default').addClass('xs-panel');
+}
+
+AppGini.controlBackButtonBehavior = () => {
+	// Check if the app is running in standalone mode (PWA)
+	const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+	if (isStandalone) {
+		// Push an initial state to the history stack to trap the back button
+		history.pushState(null, '', location.href);
+
+		// Listen for the 'popstate' event, triggered by the back button
+		window.addEventListener('popstate', (event) => {
+			// Show a confirmation dialog when the back button is pressed
+			const exitConfirmed = true; // confirm('Are you sure you want to exit the app?');
+			if (exitConfirmed) {
+				// Attempt to close the app
+				window.close();
+
+				// If `window.close()` fails (e.g., due to platform restrictions), fallback:
+				history.back(); // Navigate back if there is history
+			} else {
+				// Prevent default back action and stay on the same page
+				history.pushState(null, '', location.href);
+			}
+		});
+	}
 }

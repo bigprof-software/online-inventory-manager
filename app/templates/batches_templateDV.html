@@ -91,7 +91,7 @@
 
 		<!-- DV action buttons -->
 		<hr class="hidden-md hidden-lg">
-		<div class="col-md-4 col-lg-2" id="batches_dv_action_buttons">
+		<div class="col-md-4 col-lg-2 dv-action-buttons" id="batches_dv_action_buttons">
 			<div class="btn-toolbar">
 				<div class="btn-group-vertical btn-group-lg" style="width: 100%;">
 					<%%UPDATE_BUTTON%%>
@@ -158,12 +158,6 @@
 				$j('#batches_dv_container-loading').addClass('hidden');
 				$j('#batches_dv_container').removeClass('hidden');
 			}
-
-			$j('form').eq(0).change(function() {
-				if($j(this).data('already_changed')) return;
-				if($j('#deselect').length) $j('#deselect').removeClass('btn-default').addClass('btn-warning').get(0).lastChild.data = " <%%TRANSLATION(Cancel)%%>";
-				$j(this).data('already_changed', true);
-			});
 
 			$j('a[href="<%%BASE_UPLOAD_PATH%%>"]').click(function() { return false; });
 
@@ -276,6 +270,7 @@
 				}
 			});
 
+			batchesUniqueFields.forEach(fieldName => enforce_uniqueness('batches', fieldName));
 
 			/* load admin tools for admin user */
 			if(!add_new_mode) {
@@ -288,13 +283,8 @@
 					}
 				);
 			}
-
-			/* warn user if 'add new' clicked while unsaved changes exist */
-			$j('#addNew').click(function() {
-				if($j('#deselect.btn-warning').length) {
-					return confirm('<%%TRANSLATION(discard changes confirm)%%>');
-				}
-			});
-
 		});
+
+		var batchesUniqueFields = [
+		];
 	</script>

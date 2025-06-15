@@ -563,7 +563,6 @@ $TranslationEn = [
 	'remember me' => 'Remember me',
 	'go to signup' => "Don't have a username? <br>&nbsp; <a href=membership_signup.php>Sign up here</a>",
 	'forgot password' => 'Forgot your password? <a href=membership_passwordReset.php>Click here</a>',
-	'browse as guest' => '<a href=index.php>Continue browsing as a guest</a>',
 	'no table access' => "You don't have enough permissions to access any page here. Please sign in first.",
 	'signup' => 'Sign up',
 	'user already exists' => "Username '<MemberID>' already exists. Try another username.",
@@ -884,4 +883,40 @@ $TranslationEn = [
 	// Added in 24.14
 	'Copy permissions from another group' => 'Copy permissions from another group',
 	'revert permissions' => 'Revert permissions',
+
+	// Added in 24.18
+	'Capture my location' => 'Capture my location',
+	'Could not capture your location' => 'Could not capture your location',
+	'You must allow the browser to capture your location' => 'You must allow the browser to capture your location',
+	'restrict API key' => 'IMPORTANT! Make sure to add an IP or website restriction to your API key to protect it against abuse.',
+
+	// Added in 24.19
+	'no insert permission' => 'You do not have permission to insert records into this table.',
+
+	// Added in 25.10
+	'download' => 'Download',
+
+	// Added in 25.11
+	'offline mode' => 'Offline mode',
+	'offline mode message' => 'You are currently disconnected from the server. Please check your internet connection and try again.',
+	'retry' => 'Retry',
+	'install mobile app' => 'Install mobile app',
+	'match all above conditions' => 'Match all above conditions',
+	'all of the following conditions' => 'All of the following conditions apply',
+	'any of the following conditions' => 'Any of the following conditions apply',
+	'find records that match' => 'Find %s where:',
+	'match all groups' => 'Match all filter groups',
+	'add another condition group' => 'Add another filter group',
+	'add another condition to this group' => 'Add another condition to this group',
+	'remove this condition' => 'Remove this condition',
+	'invalid theme' => 'Invalid theme',
+	'theme selector' => 'Theme selector',
+	'large text' => 'Large text',
+	'small text' => 'Small text',
+	'update theme' => 'Update theme',
+	'default theme' => 'Default theme',
+	'your theme was updated successfully' => 'Your theme was updated successfully',
+	'my account' => 'My account',
+	'exit' => 'Exit',
+	'click mobile home button to exit' => 'To close this app, swipe up or press the Home button to return to your Home screen.',
 ];

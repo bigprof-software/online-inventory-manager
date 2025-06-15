@@ -43,14 +43,14 @@
 				<!-- Field: Email -->
 				<div class="form-group suppliers-email">
 					<hr class="hidden-md hidden-lg">
-					<label class="control-label col-lg-3" for="email-edit-link">Email</label>
+					<label class="control-label col-lg-3" for="email">Email</label>
 					<div class="col-lg-9">
-						<div>
-							<a id="email-link" href="mailto:<%%VALUE(email)%%>" target="_blank" class="rspacer-lg"><i class="glyphicon glyphicon-envelope text-info" title="<%%VALUE(email)%%>"></i></a>
-							<label for="email"><button type="button" id="email-edit-link" class="btn btn-default vspacer-sm" data-toggle="collapse" data-target="#email" title="<%%TRANSLATION(Edit)%%>"><i class="glyphicon glyphicon-pencil"></i></button></label>
-							<input maxlength="80" type="text" class="form-control collapse" name="email" id="email" value="<%%VALUE(email)%%>">
+						<div class="input-group">
+							<input maxlength="80" type="text" class="form-control" name="email" id="email" value="<%%VALUE(email)%%>">
+							<span class="input-group-btn">
+								<button id="email-link" class="btn btn-default" type="button" title="<%%VALUE(email)%%>" onclick="if(this.title) window.open(`mailto:${this.title}`, '_blank')"><i class="glyphicon glyphicon-envelope"></i></button>
+							</span>
 						</div>
-						<script>/* disable empty links */ $j(() => { const e_email = '<%%VALUE(email)%%>'; if(e_email == '' || e_email == '&nbsp;' || e_email == 'blank.gif') { $j('#email-link').hide(); $j('#email-image').parents('a').attr('href', '').on('click', (e) => e.preventDefault()); } });</script>
 					</div>
 				</div>
 
@@ -86,7 +86,7 @@
 
 		<!-- DV action buttons -->
 		<hr class="hidden-md hidden-lg">
-		<div class="col-md-4 col-lg-2" id="suppliers_dv_action_buttons">
+		<div class="col-md-4 col-lg-2 dv-action-buttons" id="suppliers_dv_action_buttons">
 			<div class="btn-toolbar">
 				<div class="btn-group-vertical btn-group-lg" style="width: 100%;">
 					<%%UPDATE_BUTTON%%>
@@ -135,12 +135,6 @@
 			$j('#suppliers_dv_container-loading').addClass('hidden');
 			$j('#suppliers_dv_container').removeClass('hidden');
 			if(!$j('.table_view').length || $j('[name=SelectedID]').val().length) AppGini.focusFormElement('suppliers', 'supplier');
-
-			$j('form').eq(0).change(function() {
-				if($j(this).data('already_changed')) return;
-				if($j('#deselect').length) $j('#deselect').removeClass('btn-default').addClass('btn-warning').get(0).lastChild.data = " <%%TRANSLATION(Cancel)%%>";
-				$j(this).data('already_changed', true);
-			});
 
 			$j('a[href="<%%BASE_UPLOAD_PATH%%>"]').click(function() { return false; });
 
@@ -253,6 +247,7 @@
 				}
 			});
 
+			suppliersUniqueFields.forEach(fieldName => enforce_uniqueness('suppliers', fieldName));
 
 			/* load admin tools for admin user */
 			if(!add_new_mode) {
@@ -265,13 +260,8 @@
 					}
 				);
 			}
-
-			/* warn user if 'add new' clicked while unsaved changes exist */
-			$j('#addNew').click(function() {
-				if($j('#deselect.btn-warning').length) {
-					return confirm('<%%TRANSLATION(discard changes confirm)%%>');
-				}
-			});
-
 		});
+
+		var suppliersUniqueFields = [
+		];
 	</script>

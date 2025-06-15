@@ -79,7 +79,7 @@
 					<label class="control-label col-lg-3" for="quantity">Quantity <i class="glyphicon glyphicon-info-sign text-info" data-toggle="collapse" data-target="#quantity-description"></i></label>
 					<div class="col-lg-9">
 						<span class="help-block bspacer-xs collapse" id="quantity-description"><div class="alert alert-info bspacer-xs">The quantity you provide here would update the balancce of the related batch and item automatically (according to the transaction type).</div></span>
-						<input maxlength="13" type="text" class="form-control" name="quantity" id="quantity" value="<%%VALUE(quantity)%%>">
+						<input maxlength="12" type="text" class="form-control" name="quantity" id="quantity" value="<%%VALUE(quantity)%%>">
 					</div>
 				</div>
 
@@ -88,7 +88,7 @@
 
 		<!-- DV action buttons -->
 		<hr class="hidden-md hidden-lg">
-		<div class="col-md-4 col-lg-2" id="transactions_dv_action_buttons">
+		<div class="col-md-4 col-lg-2 dv-action-buttons" id="transactions_dv_action_buttons">
 			<div class="btn-toolbar">
 				<div class="btn-group-vertical btn-group-lg" style="width: 100%;">
 					<%%UPDATE_BUTTON%%>
@@ -127,12 +127,6 @@
 			$j('#transactions_dv_container-loading').addClass('hidden');
 			$j('#transactions_dv_container').removeClass('hidden');
 			if(!$j('.table_view').length || $j('[name=SelectedID]').val().length) AppGini.focusFormElement('transactions', 'transaction_date');
-
-			$j('form').eq(0).change(function() {
-				if($j(this).data('already_changed')) return;
-				if($j('#deselect').length) $j('#deselect').removeClass('btn-default').addClass('btn-warning').get(0).lastChild.data = " <%%TRANSLATION(Cancel)%%>";
-				$j(this).data('already_changed', true);
-			});
 
 			$j('a[href="<%%BASE_UPLOAD_PATH%%>"]').click(function() { return false; });
 
@@ -213,6 +207,7 @@
 				}
 			});
 
+			transactionsUniqueFields.forEach(fieldName => enforce_uniqueness('transactions', fieldName));
 
 			/* load admin tools for admin user */
 			if(!add_new_mode) {
@@ -225,13 +220,8 @@
 					}
 				);
 			}
-
-			/* warn user if 'add new' clicked while unsaved changes exist */
-			$j('#addNew').click(function() {
-				if($j('#deselect.btn-warning').length) {
-					return confirm('<%%TRANSLATION(discard changes confirm)%%>');
-				}
-			});
-
 		});
+
+		var transactionsUniqueFields = [
+		];
 	</script>
