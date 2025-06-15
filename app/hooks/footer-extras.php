@@ -63,22 +63,13 @@
 		});
 
 		// show app model diagram in .homepage-app-model
-		$j(
-			'<figure>' +
-				'<img src="hooks/app-model.png" style="margin-top: 15px;">' +
-				'<figcaption><abbr title="Online Inventory Manager">OIM</abbr> ' +
-				'helps you manage your inventory of perishable items. ' +
-				'Suppliers deliver batches of items to one of your storage locations. ' +
-				'A batch is a specific quantity of some item that has an expiry date. ' +
-				'<br><br>' +
-				'Batches of items are added to your inventory in an <i>incoming transaction</i>. ' +
-				'When items are withdrawn from inventory (for sales/consumption), this is done ' +
-				'through an <i>outgoing transaction</i>. ' +
-				'<br><br>' +
-				'The balance of each inventory item is ' +
-				'updated automatically when a transaction is recorded.' +
-				'</figcaption>' +
-			'</figure>'
-		).appendTo('.homepage-app-model');
+		$j(`
+			<figure>
+				<img src="https://cdn.bigprof.com/appgini-open-source-apps/oim/online-inventory-manager-process-flow-diagram.jpg" style="margin-top: 15px;" class="img-responsive" alt="Online Inventory Manager process flow diagram" />
+				<figcaption><abbr title="Online Inventory Manager">OIM</abbr> helps you manage your inventory of perishable items. Suppliers deliver batches of items to one of your storage locations. A batch is a specific quantity of some item that has an expiry date. <br><br>Batches of items are added to your inventory in an <i>incoming transaction</i>. When items are withdrawn from inventory (for sales/consumption), this is done through an <i>outgoing transaction</i>. <br><br>
+				The balance of each inventory item is updated automatically when a transaction is recorded.
+				</figcaption>
+			</figure>
+		`).appendTo('.homepage-app-model');
 	})
 </script>
